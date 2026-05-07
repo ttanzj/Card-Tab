@@ -1,0 +1,80 @@
+name: CF Multi-Namespace Backup (Debug Version)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup-kv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backup with Detailed Error Logs
+        run: |
+          # 配置区域
+          KV_KEY_NAME="testUser"
+          NS_LIST=(
+            "${{ secrets.CF_NS_ID_1 }}:StorageA"
+            "${{ secrets.CF_NS_ID_2 }}:StorageB"
+            "${{ secrets.CF_NS_ID_3 }}:StorageC"
+          )
+
+          DATE_STR=$(date +%Y%m%d)
+          OLD_DATE_STR=$(date -d '7 days ago' +%Y%m%d)
+
+          for ITEM in "${NS_LIST[@]}"; do
+            # 严格分割 ID 和名称
+            NS_ID=$(echo "$ITEM" | cut -d':' -f1)
+            NS_NAME=$(echo "$ITEM" | cut -d':' -f2)
+            
+            if [ -z "$NS_ID" ] || [ -z "$NS_NAME" ]; then 
+              echo "⚠️ Skip invalid entry: $ITEM"
+              continue 
+            fi
+
+            echo "🚀 [Start] Processing Namespace: $NS_NAME"
+            
+            # 定义文件名：使用 KV名_日期.json
+            CURRENT_FILENAME="${NS_NAME}_${DATE_STR}.json"
+            OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
+
+            # --- 步骤 1: 从 Cloudflare 下载 ---
+            echo "📥 Fetching '$KV_KEY_NAME' from Cloudflare..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/$KV_KEY_NAME" \
+              -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
+            
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n -1)
+
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "❌ Cloudflare Error (Status: $HTTP_STATUS)"
+              echo "Response Body: $BODY"
+              continue
+            fi
+            
+            echo "$BODY" > "$CURRENT_FILENAME"
+            echo "✅ Fetch success: $CURRENT_FILENAME"
+
+            # --- 步骤 2: WebDAV 上传 ---
+            echo "📤 Uploading to WebDAV..."
+            UP_RESPONSE=$(curl -s -w "\n%{http_code}" -T "$CURRENT_FILENAME" \
+              -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+              "${{ secrets.WEBDAV_URL }}/$CURRENT_FILENAME")
+            
+            UP_STATUS=$(echo "$UP_RESPONSE" | tail -n1)
+            
+            if [[ "$UP_STATUS" =~ ^20[0-9]$ ]]; then
+              echo "✅ WebDAV Upload Success."
+              
+              # --- 步骤 3: 删除 7 天前的旧备份 ---
+              echo "扫 Cleaning up $OLD_FILENAME..."
+              curl -s -o /dev/null -X DELETE \
+                -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+                "${{ secrets.WEBDAV_URL }}/$OLD_FILENAME"
+            else
+              echo "❌ WebDAV Error (Status: $UP_STATUS)"
+              echo "Please check WebDAV URL or Permissions."
+            fi
+            echo "-----------------------------------"
+          done
