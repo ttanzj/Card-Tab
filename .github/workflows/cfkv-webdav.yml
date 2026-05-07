@@ -1,16 +1,16 @@
 for ITEM in "${NS_LIST[@]}"; do
-            NS_ID=${ITEM%%:*}
-            NS_NAME=${ITEM#*:} # 这里提取的是 StorageA, StorageB 等
+            # 这里的提取逻辑要确保精准
+            NS_ID=$(echo $ITEM | cut -d':' -f1)
+            NS_NAME=$(echo $ITEM | cut -d':' -f2)
+            
             if [ -z "$NS_ID" ]; then continue; fi
 
-            echo "🚀 [Start] Processing Namespace: $NS_NAME"
-            
-            # --- 关键修改点：使用 $NS_NAME 作为文件名前缀 ---
+            echo "🚀 [Start] Processing: $NS_NAME"
+            # 这里的命名规则已经使用了 KV 名 (NS_NAME)
             CURRENT_FILENAME="${NS_NAME}_${DATE_STR}.json"
-            OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
 
-            # --- 步骤 1: 从 CF 下载 ---
-            echo "📥 Fetching '$KV_KEY_NAME' from $NS_NAME..."
+            # --- 步骤 1: 下载测试 ---
+            echo "📥 Fetching '$KV_KEY_NAME' from Cloudflare..."
             RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
               "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/$KV_KEY_NAME" \
               -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
@@ -19,14 +19,16 @@ for ITEM in "${NS_LIST[@]}"; do
             BODY=$(echo "$RESPONSE" | head -n -1)
 
             if [ "$HTTP_STATUS" != "200" ]; then
-              echo "❌ Cloudflare Error (Status: $HTTP_STATUS) for $NS_NAME"
+              echo "❌ Cloudflare Error (Status: $HTTP_STATUS)"
+              echo "Response Body: $BODY"
               continue
             fi
             
             echo "$BODY" > "$CURRENT_FILENAME"
+            echo "✅ Fetch success."
 
-            # --- 步骤 2: 上传至 WebDAV ---
-            echo "📤 Uploading $CURRENT_FILENAME to WebDAV..."
+            # --- 步骤 2: WebDAV 上传 ---
+            echo "📤 Uploading to WebDAV as $CURRENT_FILENAME..."
             UP_RESPONSE=$(curl -s -w "\n%{http_code}" -T "$CURRENT_FILENAME" \
               -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
               "${{ secrets.WEBDAV_URL }}/$CURRENT_FILENAME")
@@ -34,10 +36,11 @@ for ITEM in "${NS_LIST[@]}"; do
             UP_STATUS=$(echo "$UP_RESPONSE" | tail -n1)
             
             if [[ "$UP_STATUS" =~ ^20[0-9]$ ]]; then
-              echo "✅ WebDAV Upload Success: $CURRENT_FILENAME"
+              echo "✅ WebDAV Upload Success."
               
-              # --- 步骤 3: 删除 7 天前的旧备份 ---
-              echo "🧹 Cleaning up old file: $OLD_FILENAME..."
+              # --- 步骤 3: 删除旧备份 ---
+              OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
+              echo "扫 Cleaning up $OLD_FILENAME..."
               curl -s -o /dev/null -X DELETE \
                 -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
                 "${{ secrets.WEBDAV_URL }}/$OLD_FILENAME"
