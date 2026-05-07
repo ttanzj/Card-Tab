@@ -1,8 +1,3 @@
-这是一份为您整理好的完整 **Markdown 部署文档**。您可以直接全选、复制，并粘贴到您的 GitHub 仓库的 `README.md` 或 Wiki 中。
-
-文档中不包含复杂的开发逻辑代码，仅保留了 **变量获取指南**、**Secret 配置说明** 和 **Action 部署步骤**。
-
----
 
 # Cloudflare KV 自动备份至 WebDAV 部署手册
 
