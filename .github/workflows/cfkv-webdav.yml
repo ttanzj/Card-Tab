@@ -1,0 +1,61 @@
+name: CF Multi-Namespace Backup (Robust Version)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup-kv:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backup Test Keys
+        run: |
+          # 1. 预留三个位置，即使 Secret 为空也不会报错
+          NS_LIST=(
+            "${{ secrets.CF_NS_ID_1 }}:StorageA"
+            "${{ secrets.CF_NS_ID_2 }}:StorageB"
+            "${{ secrets.CF_NS_ID_3 }}:StorageC"
+          )
+          
+          DATE_STR=$(date +%Y%m%d)
+          OLD_DATE_STR=$(date -d '7 days ago' +%Y%m%d)
+          
+          for ITEM in "${NS_LIST[@]}"; do
+            NS_ID=${ITEM%%:*}
+            NS_NAME=${ITEM#*:}
+            
+            # --- 关键容错检查：如果 ID 为空则跳过 ---
+            if [ -z "$NS_ID" ]; then
+              echo "Skipping $NS_NAME: Namespace ID is empty (Secret not set)."
+              continue
+            fi
+            
+            echo "--- Processing: $NS_NAME ---"
+            
+            CURRENT_FILENAME="${NS_NAME}_${DATE_STR}.json"
+            OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
+            
+            # A. 下载 (使用 -f 确保 401/404 时返回非零退出码)
+            curl -f -s -L -X GET "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/test" \
+                 -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
+                 -o "$CURRENT_FILENAME"
+            
+            if [ $? -eq 0 ]; then
+              # B. 上传
+              curl -f -s -T "$CURRENT_FILENAME" \
+                   -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+                   "${{ secrets.WEBDAV_URL }}/$CURRENT_FILENAME"
+              
+              if [ $? -eq 0 ]; then
+                echo "Upload Success. Deleting $OLD_FILENAME (if exists)..."
+                # C. 删除 (删除即便文件不存在通常返回 404，不会终止脚本)
+                curl -s -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+                     -X DELETE "${{ secrets.WEBDAV_URL }}/$OLD_FILENAME"
+              else
+                echo "Error: WebDAV upload failed for $NS_NAME."
+              fi
+            else
+              echo "Error: Could not fetch 'test' from $NS_NAME (ID: $NS_ID)."
+            fi
+          done
