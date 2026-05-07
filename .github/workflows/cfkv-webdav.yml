@@ -1,4 +1,4 @@
-name: CF Multi-Namespace Backup (Debug Version)
+name: CF Multi-Namespace Backup (Auto Name Version)
 
 on:
   schedule:
@@ -9,37 +9,43 @@ jobs:
   backup-kv:
     runs-on: ubuntu-latest
     steps:
-      - name: Backup with Detailed Error Logs
+      - name: Backup with Auto-Fetched Namespace Name
         run: |
           # 配置区域
           KV_KEY_NAME="testUser"
+          # 这里只需要填入 ID 即可，不再需要手动写名字
           NS_LIST=(
-            "${{ secrets.CF_NS_ID_1 }}:StorageA"
-            "${{ secrets.CF_NS_ID_2 }}:StorageB"
-            "${{ secrets.CF_NS_ID_3 }}:StorageC"
+            "${{ secrets.CF_NS_ID_1 }}"
+            "${{ secrets.CF_NS_ID_2 }}"
+            "${{ secrets.CF_NS_ID_3 }}"
           )
 
           DATE_STR=$(date +%Y%m%d)
           OLD_DATE_STR=$(date -d '7 days ago' +%Y%m%d)
 
-          for ITEM in "${NS_LIST[@]}"; do
-            # 严格分割 ID 和名称
-            NS_ID=$(echo "$ITEM" | cut -d':' -f1)
-            NS_NAME=$(echo "$ITEM" | cut -d':' -f2)
+          for NS_ID in "${NS_LIST[@]}"; do
+            if [ -z "$NS_ID" ]; then continue; fi
+
+            # --- 步骤 0: 获取真实的 Namespace 名称 ---
+            echo "🔍 Fetching real name for ID: $NS_ID"
+            NS_INFO=$(curl -s -X GET \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces" \
+              -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
             
-            if [ -z "$NS_ID" ] || [ -z "$NS_NAME" ]; then 
-              echo "⚠️ Skip invalid entry: $ITEM"
-              continue 
+            # 从返回的列表中通过 ID 匹配名称 (使用 python3 处理 json，因为 ubuntu 自带)
+            NS_NAME=$(echo "$NS_INFO" | python3 -c "import sys, json; data = json.load(sys.stdin); print(next((ns['title'] for ns in data['result'] if ns['id'] == '$NS_ID'), 'Unknown'))")
+
+            if [ "$NS_NAME" == "Unknown" ]; then
+              echo "❌ Could not find Name for ID: $NS_ID. Using ID instead."
+              NS_NAME=$NS_ID
             fi
 
-            echo "🚀 [Start] Processing Namespace: $NS_NAME"
-            
-            # 定义文件名：使用 KV名_日期.json
+            echo "🚀 [Start] Processing: $NS_NAME"
             CURRENT_FILENAME="${NS_NAME}_${DATE_STR}.json"
             OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
 
-            # --- 步骤 1: 从 Cloudflare 下载 ---
-            echo "📥 Fetching '$KV_KEY_NAME' from Cloudflare..."
+            # --- 步骤 1: 下载数据 ---
+            echo "📥 Fetching '$KV_KEY_NAME' from $NS_NAME..."
             RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
               "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/$KV_KEY_NAME" \
               -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
@@ -49,15 +55,13 @@ jobs:
 
             if [ "$HTTP_STATUS" != "200" ]; then
               echo "❌ Cloudflare Error (Status: $HTTP_STATUS)"
-              echo "Response Body: $BODY"
               continue
             fi
             
             echo "$BODY" > "$CURRENT_FILENAME"
-            echo "✅ Fetch success: $CURRENT_FILENAME"
 
             # --- 步骤 2: WebDAV 上传 ---
-            echo "📤 Uploading to WebDAV..."
+            echo "📤 Uploading to WebDAV as $CURRENT_FILENAME..."
             UP_RESPONSE=$(curl -s -w "\n%{http_code}" -T "$CURRENT_FILENAME" \
               -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
               "${{ secrets.WEBDAV_URL }}/$CURRENT_FILENAME")
@@ -67,14 +71,13 @@ jobs:
             if [[ "$UP_STATUS" =~ ^20[0-9]$ ]]; then
               echo "✅ WebDAV Upload Success."
               
-              # --- 步骤 3: 删除 7 天前的旧备份 ---
-              echo "扫 Cleaning up $OLD_FILENAME..."
+              # --- 步骤 3: 删除旧备份 ---
+              echo "🧹 Cleaning up $OLD_FILENAME..."
               curl -s -o /dev/null -X DELETE \
                 -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
                 "${{ secrets.WEBDAV_URL }}/$OLD_FILENAME"
             else
               echo "❌ WebDAV Error (Status: $UP_STATUS)"
-              echo "Please check WebDAV URL or Permissions."
             fi
             echo "-----------------------------------"
           done
