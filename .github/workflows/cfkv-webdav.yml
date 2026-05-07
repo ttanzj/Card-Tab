@@ -9,7 +9,7 @@ jobs:
   backup-kv:
     runs-on: ubuntu-latest
     steps:
-      - name: Backup Test Keys
+      - name: Backup testUser Keys
         run: |
           # 1. 预留三个位置，即使 Secret 为空也不会报错
           NS_LIST=(
@@ -37,7 +37,7 @@ jobs:
             OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
             
             # A. 下载 (使用 -f 确保 401/404 时返回非零退出码)
-            curl -f -s -L -X GET "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/test" \
+            curl -f -s -L -X GET "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/testUser" \
                  -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}" \
                  -o "$CURRENT_FILENAME"
             
