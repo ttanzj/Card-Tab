@@ -2,13 +2,13 @@ name: Backup HF Datasets to WebDAV
 
 on:
   schedule:
-    - cron: '0 0 * * *'      # 北京时间每天早上 8:00
+    - cron: '0 0 * * *' # 北京时间每天早上 8:00
   workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    
+
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       WEBDAV_HOST: ${{ secrets.WEBDAV_HOST }}
@@ -20,7 +20,7 @@ jobs:
       matrix:
         dataset:
           # - "ttanz/sun"    # 停止备份
-          - "ttanz/openlist
+          - "ttanz/openlist"
           # - "org-name/private-dataset"   # 组织数据集示例
 
     steps:
@@ -62,7 +62,7 @@ jobs:
           set -euo pipefail
           DATASET="${{ matrix.dataset }}"
           DATASET_NAME=$(echo $DATASET | tr '/' '-')
-          BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}"
+          BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}
           
           echo "🚀 开始备份: $DATASET"
           echo "📁 目标路径: $BACKUP_DIR"
@@ -86,45 +86,33 @@ jobs:
           rclone sync ./dataset_backup webdav:"${BACKUP_DIR}" \
             --transfers=8 --checkers=16 --quiet
 
-      # 核心修改：保留原有时间逻辑 + 增加【不足7份强制不删】+ 仅全部成功才执行
-      - name: Cleanup old backups (保留7天 + 最少保留7份)
+      - name: Cleanup old backups (保留7天 + 最少7份保护)
         if: ${{ job.status == 'success' }}
         run: |
           set -euo pipefail
           cutoff=$(date -d "7 days ago" +%Y-%m-%d)
-          # 列出所有日期备份目录 正序：旧 -> 新
-          backup_list=$(rclone lsd webdav:"/huggingface" 2>/dev/null \
-            | awk '{print $5}' \
-            | grep -E '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' \
-            | sort)
+          rclone lsd webdav:"/huggingface" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$' | sort > /tmp/bak_list.txt
 
-          # 存入数组
-          arr=($backup_list)
-          total=${#arr[@]}
+          # 读取并统计备份数量
+          bak_arr=($(cat /tmp/bak_list.txt))
+          total_num=${#bak_arr[@]}
           keep_min=7
 
-          echo "📂 当前备份目录总数: $total"
-          echo "⏱️  7天时间阈值: $cutoff"
-
-          # 关键：小于等于7个，直接退出，不删除任何
-          if [ "$total" -le "$keep_min" ]; then
-            echo "🛡️ 备份数量 ≤ ${keep_min} 份，启用保护，跳过清理"
+          # 不足7份直接不删除
+          if [ ${total_num} -le ${keep_min} ]; then
+            echo "🛡️ 当前备份数量(${total_num}) ≤ 7，跳过清理"
             exit 0
           fi
 
-          # 只处理：超出7份的老旧目录
-          remove_list=("${arr[@]:0:$((total - keep_min))}")
-
-          for day in "${remove_list[@]}"; do
-            if [[ "$day" < "$cutoff" ]]; then
-              echo "🗑️ 删除过期备份: $day"
-              rclone purge webdav:"/huggingface/$day" --quiet
+          # 只遍历超出7份的旧目录，沿用原本时间比对逻辑
+          for d in "${bak_arr[@]:0:$((total_num - keep_min))}"; do
+            if [[ "$d" < "$cutoff" ]];then
+              rclone purge webdav:"/huggingface/$d" --quiet
             fi
           done
 
       - name: Show current backups
         if: success()
         run: |
-          set -euo pipefail
           echo "📋 当前备份目录列表："
           rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$'
