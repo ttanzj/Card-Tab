@@ -1,118 +1,83 @@
-name: Backup HF Datasets to WebDAV
+name: CF Multi-Namespace Backup (Auto Name Version)
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 北京时间每天早上 8:00
+    - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
-  backup:
+  backup-kv:
     runs-on: ubuntu-latest
-
-    env:
-      HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      WEBDAV_HOST: ${{ secrets.WEBDAV_HOST }}
-      WEBDAV_USER: ${{ secrets.WEBDAV_USER }}
-      WEBDAV_PASS: ${{ secrets.WEBDAV_PASS }}
-      BACKUP_PATH: "/huggingface"
-
-    strategy:
-      matrix:
-        dataset:
-          # - "ttanz/sun"    # 停止备份
-          - "ttanz/openlist"
-          # - "org-name/private-dataset"   # 组织数据集示例
-
     steps:
-      - name: Install minimal dependencies
+      - name: Backup with Auto-Fetched Namespace Name
         run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y rclone --no-install-recommends -qq
-          python3 -m pip install "huggingface_hub[cli]" --quiet --no-cache-dir
-
-      - name: Configure rclone WebDAV
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.config/rclone
-          cat > ~/.config/rclone/rclone.conf << EOF
-          [webdav]
-          type = webdav
-          url = ${WEBDAV_HOST}
-          vendor = nextcloud
-          user = ${WEBDAV_USER}
-          pass = $(rclone obscure "${WEBDAV_PASS}")
-          EOF
-
-      - name: Login to Hugging Face
-        run: |
-          set -euo pipefail
-          hf auth login --token $HF_TOKEN --add-to-git-credential
-          echo "✅ HF 登录成功"
-          hf env
-
-      - name: Generate backup date
-        id: date
-        run: |
-          set -euo pipefail
-          echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: Backup ${{ matrix.dataset }}
-        run: |
-          set -euo pipefail
-          DATASET="${{ matrix.dataset }}"
-          DATASET_NAME=$(echo $DATASET | tr '/' '-')
-          BACKUP_DIR="${{ env.BACKUP_PATH }}/${{ env.DATE }}/${DATASET_NAME}
-          
-          echo "🚀 开始备份: $DATASET"
-          echo "📁 目标路径: $BACKUP_DIR"
-          
-          rm -rf ./dataset_backup && mkdir -p ./dataset_backup
-          
-          python3 - <<EOF
-          from huggingface_hub import snapshot_download
-          snapshot_download(
-              repo_id="${DATASET}",
-              repo_type="dataset",
-              local_dir="./dataset_backup",
-              local_dir_use_symlinks=False,
-              allow_patterns=["*"]
+          # 配置区域
+          KV_KEY_NAME="testUser"
+          # 这里只需要填入 ID 即可，不再需要手动写名字
+          NS_LIST=(
+            "${{ secrets.CF_NS_ID_1 }}"
+            "${{ secrets.CF_NS_ID_2 }}"
+            "${{ secrets.CF_NS_ID_3 }}"
           )
-          print("✅ 数据集下载完成")
-          EOF
 
-          echo "📤 正在上传到 WebDAV..."
-          rclone mkdir webdav:"${BACKUP_DIR}" --quiet
-          rclone sync ./dataset_backup webdav:"${BACKUP_DIR}" \
-            --transfers=8 --checkers=16 --quiet
+          DATE_STR=$(date +%Y%m%d)
+          OLD_DATE_STR=$(date -d '7 days ago' +%Y%m%d)
 
-      - name: Cleanup old backups (保留7天 + 最少7份保护)
-        if: ${{ job.status == 'success' }}
-        run: |
-          set -euo pipefail
-          cutoff=$(date -d "7 days ago" +%Y-%m-%d)
-          rclone lsd webdav:"/huggingface" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$' | sort > /tmp/bak_list.txt
+          for NS_ID in "${NS_LIST[@]}"; do
+            if [ -z "$NS_ID" ]; then continue; fi
 
-          # 读取并统计备份数量
-          bak_arr=($(cat /tmp/bak_list.txt))
-          total_num=${#bak_arr[@]}
-          keep_min=7
+            # --- 步骤 0: 获取真实的 Namespace 名称 ---
+            echo "🔍 Fetching real name for ID: $NS_ID"
+            NS_INFO=$(curl -s -X GET \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces" \
+              -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
+            
+            # 从返回的列表中通过 ID 匹配名称 (使用 python3 处理 json，因为 ubuntu 自带)
+            NS_NAME=$(echo "$NS_INFO" | python3 -c "import sys, json; data = json.load(sys.stdin); print(next((ns['title'] for ns in data['result'] if ns['id'] == '$NS_ID'), 'Unknown'))")
 
-          # 不足7份直接不删除
-          if [ ${total_num} -le ${keep_min} ]; then
-            echo "🛡️ 当前备份数量(${total_num}) ≤ 7，跳过清理"
-            exit 0
-          fi
-
-          # 只遍历超出7份的旧目录，沿用原本时间比对逻辑
-          for d in "${bak_arr[@]:0:$((total_num - keep_min))}"; do
-            if [[ "$d" < "$cutoff" ]];then
-              rclone purge webdav:"/huggingface/$d" --quiet
+            if [ "$NS_NAME" == "Unknown" ]; then
+              echo "❌ Could not find Name for ID: $NS_ID. Using ID instead."
+              NS_NAME=$NS_ID
             fi
-          done
 
-      - name: Show current backups
-        if: success()
-        run: |
-          echo "📋 当前备份目录列表："
-          rclone lsd webdav:"${{ env.BACKUP_PATH }}" 2>/dev/null | awk '{print $5}' | grep '^[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$'
+            echo "🚀 [Start] Processing: $NS_NAME"
+            CURRENT_FILENAME="${NS_NAME}_${DATE_STR}.json"
+            OLD_FILENAME="${NS_NAME}_${OLD_DATE_STR}.json"
+
+            # --- 步骤 1: 下载数据 ---
+            echo "📥 Fetching '$KV_KEY_NAME' from $NS_NAME..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+              "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_ACCOUNT_ID }}/storage/kv/namespaces/$NS_ID/values/$KV_KEY_NAME" \
+              -H "Authorization: Bearer ${{ secrets.CF_API_TOKEN }}")
+            
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | head -n -1)
+
+            if [ "$HTTP_STATUS" != "200" ]; then
+              echo "❌ Cloudflare Error (Status: $HTTP_STATUS)"
+              continue
+            fi
+            
+            echo "$BODY" > "$CURRENT_FILENAME"
+
+            # --- 步骤 2: WebDAV 上传 ---
+            echo "📤 Uploading to WebDAV as $CURRENT_FILENAME..."
+            UP_RESPONSE=$(curl -s -w "\n%{http_code}" -T "$CURRENT_FILENAME" \
+              -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+              "${{ secrets.WEBDAV_URL }}/$CURRENT_FILENAME")
+            
+            UP_STATUS=$(echo "$UP_RESPONSE" | tail -n1)
+            
+            if [[ "$UP_STATUS" =~ ^20[0-9]$ ]]; then
+              echo "✅ WebDAV Upload Success."
+              
+              # --- 步骤 3: 删除旧备份 ---
+              echo "🧹 Cleaning up $OLD_FILENAME..."
+              curl -s -o /dev/null -X DELETE \
+                -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+                "${{ secrets.WEBDAV_URL }}/$OLD_FILENAME"
+            else
+              echo "❌ WebDAV Error (Status: $UP_STATUS)"
+            fi
+            echo "-----------------------------------"
+          done
