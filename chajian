@@ -1,0 +1,138 @@
+// ==UserScript==
+// @name         CardTab 快捷编辑删除
+// @namespace    https://dao.ttanzj.qzz.io
+// @version      1.4
+// @description  自动登录 + 正确传递Token + 移动端优化
+// @author       Grok
+// @match        https://dao.ttanzj.qzz.io/*
+// @match        https://dao2.ttanzj.qzz.io/*
+// @grant        none
+// @run-at       document-end
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // ================== 配置区 ==================
+    const ADMIN_PASSWORD = "  ";   // ←←← 在这里填你的密码
+    // ===========================================
+
+    let currentToken = localStorage.getItem('authToken');
+
+    // 自动登录
+    async function autoLogin() {
+        if (currentToken) return true;
+
+        try {
+            const res = await fetch('/api/verifyPassword', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: ADMIN_PASSWORD })
+            });
+
+            const data = await res.json();
+            if (data.valid && data.token) {
+                currentToken = data.token;
+                localStorage.setItem('authToken', data.token);
+                console.log('✅ 脚本自动登录成功');
+                return true;
+            }
+        } catch (e) {
+            console.error('自动登录失败');
+        }
+        return false;
+    }
+
+    // 强制进入设置模式
+    function forceAdminMode() {
+        const adminBtn = document.getElementById('admin-btn');
+        if (adminBtn && adminBtn.style.display !== 'none') {
+            adminBtn.click();
+        }
+    }
+
+    // 为卡片添加快捷按钮
+    function addQuickButtons() {
+        document.querySelectorAll('.card:not(.script-enhanced)').forEach(card => {
+            card.classList.add('script-enhanced');
+
+            const actions = card.querySelector('.card-actions');
+            if (!actions) return;
+
+            const editBtn = actions.querySelector('.edit-btn');
+            const deleteBtn = actions.querySelector('.delete-btn');
+
+            // 创建大按钮
+            const container = document.createElement('div');
+            container.style.cssText = `position:absolute;top:-12px;right:-12px;display:flex;gap:8px;z-index:35;`;
+
+            const qEdit = document.createElement('button');
+            qEdit.textContent = '✏️';
+            qEdit.style.cssText = `width:42px;height:42px;font-size:18px;border:none;border-radius:50%;background:#43b883;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+
+            const qDel = document.createElement('button');
+            qDel.textContent = '🗑️';
+            qDel.style.cssText = `width:42px;height:42px;font-size:18px;border:none;border-radius:50%;background:#e74c3c;color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);`;
+
+            qEdit.onclick = async (e) => {
+                e.stopImmediatePropagation();
+                if (await autoLogin()) {
+                    forceAdminMode();
+                    setTimeout(() => editBtn && editBtn.click(), 300);
+                }
+            };
+
+            qDel.onclick = async (e) => {
+                e.stopImmediatePropagation();
+                if (await autoLogin()) {
+                    forceAdminMode();
+                    setTimeout(() => deleteBtn && deleteBtn.click(), 300);
+                }
+            };
+
+            container.append(qEdit, qDel);
+            card.appendChild(container);
+        });
+    }
+
+    // 增强保存（重要！）
+    function enhanceSave() {
+        const originalSave = window.saveLinks || window.saveCardOrder;
+        if (originalSave) {
+            window.saveLinks = async function(...args) {
+                const token = localStorage.getItem('authToken');
+                if (token) {
+                    // 确保请求带上token
+                    const oldFetch = window.fetch;
+                    window.fetch = async (url, options = {}) => {
+                        if (url.includes('/api/saveOrder')) {
+                            options.headers = options.headers || {};
+                            options.headers.Authorization = token;
+                        }
+                        return oldFetch(url, options);
+                    };
+                }
+                return originalSave(...args);
+            };
+        }
+    }
+
+    async function init() {
+        await autoLogin();           // 页面加载时自动登录
+        addQuickButtons();
+
+        const observer = new MutationObserver(addQuickButtons);
+        observer.observe(document.getElementById('sections-container') || document.body, { childList: true, subtree: true });
+
+        setInterval(addQuickButtons, 1200);
+        enhanceSave();
+
+        console.log('%c✅ CardTab 快捷工具（带自动登录）已启动', 'color:#43b883;font-size:15px');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
