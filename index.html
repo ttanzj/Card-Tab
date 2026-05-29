@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Tab</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>⭐</text></svg>">
+    <style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f5f5f0;
+        transition: background-color 0.3s ease;
+    }
+    
+    .fixed-elements {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: #f5f5f0;
+        z-index: 1000;
+        padding: 10px 15px;
+        transition: background-color 0.3s ease;
+        height: 110px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .fixed-elements .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+    }
+    
+    .fixed-elements h3 {
+        margin: 0;
+        color: #333;
+        font-size: 18px;
+        font-weight: 600;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 10px;
+    }
+    
+    .center-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .admin-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .admin-controls button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-left: 8px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+    
+    .admin-controls button:hover {
+        background-color: #0056b3;
+    }
+    
+    .add-remove-controls {
+        display: none;
+        flex-direction: column;
+        position: fixed;
+        right: 25px;
+        top: 50%;
+        transform: translateY(-50%);
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .round-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        text-align: center;
+        font-size: 24px;
+        line-height: 44px;
+        cursor: pointer;
+        margin: 6px 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .round-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .add-btn { 
+        order: 1; 
+        background-color: #28a745;
+    }
+    .remove-btn { 
+        order: 2; 
+        background-color: #17a2b8;
+    }
+    .category-btn { 
+        order: 3; 
+        background-color: #ffc107;
+        color: #333;
+    }
+    .edit-category-btn { 
+        order: 4; 
+        background-color: #6c757d;
+    }
+    
+    .content {
+        margin-top: 170px;
+        padding: 0 8%;
+        display: none;
+    }
+    
+    .content.loaded {
+        display: block;
+    }
+    
+    .search-container {
+        margin-top: 15px;
+    }
+    
+    .search-bar {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+    
+    .search-engine-select {
+        padding: 10px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px 0 0 8px;
+        background-color: white;
+        cursor: pointer;
+        font-size: 14px;
+        color: #666;
+        border-right: none;
+    }
+    
+    .search-bar input {
+        width: 50%;
+        padding: 10px 15px;
+        border: 1px solid #e0e0e0;
+        border-left: none;
+        border-right: none;
+        font-size: 14px;
+    }
+    
+    .search-bar input:focus {
+        outline: none;
+        border-color: #28a745;
+    }
+    
+    .search-bar button {
+        padding: 10px 18px;
+        border: 1px solid #28a745;
+        border-left: none;
+        background-color: #28a745;
+        border-radius: 0 8px 8px 0;
+        cursor: pointer;
+        color: white;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+    
+    .search-bar button:hover {
+        background-color: #218838;
+    }
+    
+    .category-nav {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .category-nav-item {
+        padding: 6px 14px;
+        background-color: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 20px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #666;
+    }
+    
+    .category-nav-item:hover {
+        background-color: #28a745;
+        color: white;
+        border-color: #28a745;
+    }
+    
+    .category-nav-item.active {
+        background-color: #28a745;
+        color: white;
+        border-color: #28a745;
+    }
+    
+    #theme-toggle {
+        position: fixed;
+        bottom: 50px;
+        right: 20px;
+        background-color: #b8c9d9;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        text-align: center;
+        font-size: 24px;
+        line-height: 40px;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        transition: background-color 0.3s ease;
+        display: none;
+    }
+    
+    #theme-toggle.loaded {
+        display: block;
+    }
+    
+    #back-to-top {
+        position: fixed;
+        bottom: 60px;
+        right: 20px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        text-align: center;
+        font-size: 20px;
+        line-height: 40px;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        transition: background-color 0.2s;
+        display: none;
+        z-index: 1000;
+    }
+    
+    #back-to-top.show {
+        display: block;
+    }
+    
+    #back-to-top:hover {
+        background-color: #218838;
+    }
+
+    #theme-toggle:hover {
+        background-color: #007bff;
+    }
+
+    #dialog-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        overflow-y: auto;
+    }
+    
+    #dialog-overlay.showing {
+        overflow-y: hidden;
+    }
+    
+    @media (max-width: 480px) {
+        #dialog-box {
+            width: 280px;
+            padding: 16px;
+            margin: 10px;
+        }
+        
+        #category-dialog-box {
+            width: 280px;
+            padding: 16px;
+            margin: 10px;
+        }
+    }
+    
+    #dialog-box {
+        background-color: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 340px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        font-family: inherit;
+    }
+    
+    #dialog-box label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    #dialog-box input, #dialog-box select {
+        width: 100%;
+        margin-bottom: 14px;
+        padding: 10px 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+        background-color: #fff;
+        color: #333;
+    }
+    
+    #dialog-box input:focus, #dialog-box select:focus {
+        outline: none;
+        border-color: #28a745;
+    }
+    
+    #dialog-box .private-link-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 14px;
+        gap: 8px;
+        white-space: nowrap;
+    }
+    
+    #dialog-box .private-link-container label {
+        margin-bottom: 0;
+        font-weight: normal;
+        white-space: nowrap;
+    }
+    
+    #dialog-box button {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-right: 10px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    #dialog-box button:hover {
+        background-color: #218838;
+    }
+    
+    #dialog-box #dialog-cancel-btn {
+        background-color: #6c757d;
+    }
+    
+    #dialog-box #dialog-cancel-btn:hover {
+        background-color: #5a6268;
+    }
+    
+    #category-dialog-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        overflow-y: auto;
+    }
+    
+    #confirm-dialog-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    }
+    
+    #confirm-dialog-box {
+        background-color: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 300px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+    
+    #confirm-dialog-box p {
+        margin: 0 0 20px 0;
+        font-size: 16px;
+        color: #333;
+    }
+    
+    #confirm-ok-btn {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-right: 10px;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    #confirm-cancel-btn {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    #category-dialog-box {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        width: 300px;
+    }
+    
+    #category-dialog-box input {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 5px;
+    }
+    
+    #category-dialog-box button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    
+    #category-dialog-box button:hover {
+        background-color: #0056b3;
+    }
+    
+    .section {
+        margin-bottom: 20px;
+    }
+    
+    .section-title-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-left: 20px;
+    }
+    
+    .section-title {
+        font-size: 18px;
+        font-weight: bold;
+        display: inline-block;
+        line-height: 1.2;
+    }
+    
+    .delete-category-btn {
+        background-color: #ff9800;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-left: 5px;
+    }
+    
+    .edit-category-btn {
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-left: 5px;
+    }
+    
+    .category-up-btn, .category-down-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-left: 5px;
+        font-size: 12px;
+    }
+    
+    .category-up-btn:disabled, .category-down-btn:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .card-container {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 16px;
+        padding: 0 20px;
+        align-items: start;
+        overflow: visible;
+    }
+
+    .card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        user-select: none;
+        border-left: 3px solid #28a745;
+        height: 56px;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+    
+    .card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+    
+    .card-top {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    
+    .card-icon {
+        width: 18px;
+        height: 18px;
+        margin-right: 6px;
+        border-radius: 4px;
+    }
+    
+    .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #333;
+    }
+    
+    .card-url {
+        font-size: 12px;
+        color: #999;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .card-tips {
+        display: none;
+        position: fixed;
+        background-color: #e3f2fd;
+        color: #1a237e;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        max-width: 280px;
+        min-width: 150px;
+        max-height: 150px;
+        z-index: 999999;
+        word-wrap: break-word;
+        overflow-y: auto;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        pointer-events: none;
+    }
+
+    /* 移除 CSS hover 控制，改用 JavaScript */
+    
+
+    
+    .private-tag {
+        background-color: #fd7e14;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-weight: 500;
+    }
+    
+    .delete-btn {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        background-color: red;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        text-align: center;
+        font-size: 14px;
+        line-height: 20px;
+        cursor: pointer;
+        display: none;
+        z-index: 100;
+    }
+
+    .edit-btn {
+        position: absolute;
+        top: -10px;
+        right: 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        text-align: center;
+        font-size: 14px;
+        line-height: 20px;
+        cursor: pointer;
+        display: none;
+        z-index: 100;
+    }
+    
+    .card-edit-toggle-btn {
+        position: absolute;
+        top: -10px;
+        right: -10px;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        text-align: center;
+        font-size: 14px;
+        line-height: 20px;
+        cursor: pointer;
+        display: none;
+    }
+    
+    #copyright {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 40px;
+        background-color: rgba(255, 255, 255, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 14px;
+        z-index: 1000;
+        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    #copyright p {
+        margin: 0;
+    }
+    
+    #copyright a {
+        color: #007bff;
+        text-decoration: none;
+    }
+    
+    #copyright a:hover {
+        text-decoration: underline;
+    }
+    
+    .login-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #f5f5f0;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+    }
+    
+    .login-box {
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        text-align: center;
+        width: 300px;
+    }
+    
+    .login-box h2 {
+        margin-top: 0;
+        color: #333;
+    }
+    
+    .login-box input {
+        width: 100%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+    
+    .login-box button {
+        width: 100%;
+        padding: 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    
+    .login-box button:hover {
+        background-color: #0056b3;
+    }
+    
+    .login-error {
+        color: red;
+        font-size: 12px;
+        display: none;
+    }
+    
+    .login-loading {
+        color: #666;
+        font-size: 12px;
+    }
+    
+    @media (max-width: 480px) {
+        .fixed-elements {
+            position: relative;
+            padding: 5px;
+        }
+        .content {
+            margin-top: 120px;
+        }
+
+        .admin-controls input,
+        .admin-controls button {
+            height: 30%;
+        }
+
+        .card-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 0 10px;
+        }
+        .card {
+            width: 100%;
+            max-width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        .card-title {
+            font-size: 12px;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            max-width: 130px; 
+        }
+        .card-url {
+            font-size: 10px;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            max-width: 130px;
+        }
+        
+        .add-remove-controls {
+            right: 2px;
+          }
+
+        .round-btn, 
+        #theme-toggle {
+            right: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            font-size: 24px;
+        }
+        
+        #back-to-top {
+            right: 5px;
+            bottom: 90px;
+            width: 30px;
+            height: 30px;
+            font-size: 20px;
+            display: none;
+        }
+        
+        #back-to-top.show {
+            display: block;
+        }
+        
+        #theme-toggle {
+            bottom: 130px;
+        }
+        
+        .delete-btn,
+        .edit-btn,
+        .card-edit-toggle-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 20px;
+            line-height: 36px;
+            z-index: 100;
+        }
+        
+        .edit-btn {
+            right: 20px;
+        }
+    }
+    </style>
+</head>
+
+<body>
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-box">
+            <h2>🔐 Card Tab</h2>
+            <input type="password" id="login-password" placeholder="请输入密码">
+            <button id="login-btn" onclick="handleLogin()">登 录</button>
+            <p id="login-error" class="login-error">密码错误，请重试</p>
+            <p id="login-loading" class="login-loading" style="display: none;">验证中...</p>
+        </div>
+    </div>
+
+    <div class="fixed-elements" style="display: none;">
+        <div class="header-row">
+            <h3 id="nav-title"></h3>
+            <div class="admin-controls" style="display: none;">
+                <button id="admin-mode-btn" onclick="handleMainButtonClick()">设  置</button>
+                <button id="logout-btn" onclick="handleLogout()" style="background-color: #dc3545;">注  销</button>
+            </div>
+        </div>
+        <div class="center-content">
+            <div class="search-container">
+                <div class="search-bar">
+                    <select id="search-engine-select" class="search-engine-select">
+                        <option value="baidu">百度</option>
+                        <option value="bing">必应</option>
+                        <option value="google">谷歌</option>
+                    </select>
+                    <input type="text" id="search-input" placeholder="">
+                    <button id="search-button">🔍</button>
+                </div>
+                <div class="category-nav" id="category-nav">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <div class="add-remove-controls">
+            <button class="round-btn add-btn" onclick="showAddDialog()">+</button>
+            <button class="round-btn remove-btn" onclick="toggleCardEditMode()">✎</button>
+            <button class="round-btn category-btn" onclick="showCategoryDialog()">C+</button>
+            <button class="round-btn edit-category-btn" onclick="toggleCategoryEditMode()">E</button>
+        </div>
+
+        <div id="sections-container"></div>
+        <button id="theme-toggle" onclick="toggleTheme()">◑</button>
+        <button id="back-to-top" onclick="scrollToTop()">⬆️</button>
+        <div id="dialog-overlay">
+            <div id="dialog-box">
+                <input type="hidden" id="edit-link-id">
+                <label for="name-input">名称</label>
+                <input type="text" id="name-input" placeholder="必填">
+                <label for="url-input">地址</label>
+                <input type="text" id="url-input" placeholder="必填">
+                <label for="desc-input">描述</label>
+                <input type="text" id="desc-input" placeholder="可选">
+                <label for="icon-input">图标</label>
+                <input type="text" id="icon-input" placeholder="可选">
+                <label for="category-select">选择分类</label>
+                <select id="category-select"></select>
+                <div class="private-link-container">
+                    <label for="private-checkbox">私密链接</label>    
+                    <input type="checkbox" id="private-checkbox">
+                </div>
+                <button id="dialog-confirm-btn" onclick="submitLink()">确定</button>
+                <button id="dialog-cancel-btn" onclick="hideAddDialog()">取消</button>
+            </div>
+        </div>
+        <div id="category-dialog-overlay" style="display: none;">
+            <div id="category-dialog-box">
+                <label for="new-category-name">分类名称</label>
+                <input type="text" id="new-category-name" placeholder="请输入分类名称">
+                <button id="category-confirm-btn" onclick="submitCategory()">确定</button>
+                <button id="category-cancel-btn" onclick="hideCategoryDialog()">取消</button>
+            </div>
+        </div>
+        
+        <div id="confirm-dialog-overlay" style="display: none;">
+            <div id="confirm-dialog-box">
+                <p id="confirm-message"></p>
+                <button id="confirm-ok-btn" onclick="confirmAction()">确定</button>
+                <button id="confirm-cancel-btn" onclick="hideConfirmDialog()">取消</button>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+    const searchEngines = {
+        baidu: "https://www.baidu.com/s?wd=",
+        bing: "https://www.bing.com/search?q=",
+        google: "https://www.google.com/search?q="
+    };
+    
+    let currentEngine = "baidu";
+    
+    function logAction(action, details) {
+        const timestamp = new Date().toISOString();
+        const logEntry = timestamp + ': ' + action + ' - ' + JSON.stringify(details);
+        console.log(logEntry); 
+    }
+    
+    function setActiveEngine(engine) {
+        currentEngine = engine;
+        document.getElementById('search-engine-select').value = engine;
+        logAction('设置搜索引擎', { engine });
+    }
+    
+    document.getElementById('search-engine-select').addEventListener('change', (e) => {
+        setActiveEngine(e.target.value);
+    });
+    
+    document.getElementById('search-button').addEventListener('click', () => {
+        const query = document.getElementById('search-input').value;
+        const engine = document.getElementById('search-engine-select').value;
+        if (query) {
+            logAction('执行搜索', { engine, query });
+            window.open(searchEngines[engine] + encodeURIComponent(query), '_blank');
+        }
+    });
+    
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('search-button').click();
+        }
+    });
+    
+    function renderCategoryNav() {
+        const nav = document.getElementById('category-nav');
+        nav.innerHTML = '';
+        Object.keys(categories).forEach(categoryName => {
+            const item = document.createElement('span');
+            item.className = 'category-nav-item' + (activeCategory === categoryName ? ' active' : '');
+            item.textContent = categoryName;
+            item.onclick = () => {
+                const section = document.getElementById(categoryName);
+                if (section) {
+                    activeCategory = categoryName;
+                    renderCategoryNav();
+                    const offsetTop = section.offsetTop - 200;
+                    window.scrollTo({
+                        top: Math.max(0, offsetTop),
+                        behavior: 'smooth'
+                    });
+                }
+            };
+            nav.appendChild(item);
+        });
+    }
+    
+    function handleLogout() {
+        localStorage.removeItem('authToken');
+        isLoggedIn = false;
+        isAdmin = false;
+        document.getElementById('login-overlay').style.display = 'flex';
+        document.querySelector('.fixed-elements').style.display = 'none';
+        document.querySelector('.content').classList.remove('loaded');
+        logAction('用户注销');
+    }
+    
+    setActiveEngine(currentEngine);
+    
+    let navTitle = '我的导航';
+    try {
+        if (window.CLOUDFLARE_ENV && window.CLOUDFLARE_ENV.navTitle) {
+            navTitle = window.CLOUDFLARE_ENV.navTitle;
+        } else if (typeof process !== 'undefined' && process.env && process.env.navTitle) {
+            navTitle = process.env.navTitle;
+        }
+    } catch (e) {
+        navTitle = '我的导航';
+    }
+    let publicLinks = [];
+    let privateLinks = [];
+    let isAdmin = false;
+    let isLoggedIn = false;
+    let removeMode = false;
+    let isRemoveCategoryMode = false;
+    let isDarkTheme = false;
+    let links = [];
+    let cardEditMode = false;
+    let categoryEditMode = false;
+    let activeCategory = '';
+    const categories = {};
+    
+    function showCategoryDialog() {
+        document.getElementById('new-category-name').value = '';
+        document.getElementById('category-dialog-overlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        logAction('显示添加分类对话框');
+    }
+    
+    function hideCategoryDialog() {
+        document.getElementById('category-dialog-overlay').style.display = 'none';
+        document.body.style.overflow = '';
+        logAction('隐藏添加分类对话框');
+    }
+    
+    let confirmCallback = null;
+    
+    function showConfirmDialog(message, callback) {
+        document.getElementById('confirm-message').textContent = message;
+        document.getElementById('confirm-dialog-overlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        confirmCallback = callback;
+        logAction('显示确认对话框');
+    }
+    
+    function hideConfirmDialog() {
+        document.getElementById('confirm-dialog-overlay').style.display = 'none';
+        document.body.style.overflow = '';
+        confirmCallback = null;
+        logAction('隐藏确认对话框');
+    }
+    
+    function confirmAction() {
+        if (confirmCallback) {
+            confirmCallback();
+        }
+        hideConfirmDialog();
+    }
+    
+    async function submitCategory() {
+        if (!await validateToken()) {
+            return; 
+        }
+        const categoryName = document.getElementById('new-category-name').value.trim();
+        if (!categoryName) {
+            alert('请输入分类名称');
+            return;
+        }
+        if (categories[categoryName]) {
+            alert('该分类已存在');
+            logAction('添加分类失败', { categoryName, reason: '分类已存在' });
+            return;
+        }
+        try {
+            const response = await fetch('/api/addCategory', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': localStorage.getItem('authToken')
+                },
+                body: JSON.stringify({ categoryName })
+            });
+            const result = await response.json();
+            if (result.success) {
+                categories[categoryName] = [];
+                updateCategorySelect();
+                renderCategories();
+                renderCategoryNav();
+                hideCategoryDialog();
+                logAction('添加分类', { categoryName, currentLinkCount: links.length });
+            } else {
+                alert('添加分类失败');
+                logAction('添加分类失败', { categoryName, reason: result.error });
+            }
+        } catch (error) {
+            console.error('Error adding category:', error);
+            alert('添加分类失败');
+        }
+    }
+
+    async function editCategoryName(oldName) {
+        if (!await validateToken()) {
+            return; 
+        }
+        const newName = prompt('请输入新分类名称:', oldName);
+        if (newName && newName !== oldName) {
+            if (categories[newName]) {
+                alert('该分类名称已存在');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/updateCategory', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify({ oldName, newName })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // 保存当前分类顺序
+                    const categoryList = Object.keys(categories);
+                    const oldIndex = categoryList.indexOf(oldName);
+                    
+                    // 创建新的分类对象，保持原有顺序
+                    const newCategories = {};
+                    categoryList.forEach((cat, index) => {
+                        if (cat === oldName) {
+                            newCategories[newName] = categories[oldName];
+                        } else {
+                            newCategories[cat] = categories[cat];
+                        }
+                    });
+                    
+                    // 清空并复制新对象
+                    Object.keys(categories).forEach(key => delete categories[key]);
+                    Object.assign(categories, newCategories);
+                    
+                    links.forEach(link => {
+                        if (link.category === oldName) {
+                            link.category = newName;
+                        }
+                    });
+                    
+                    publicLinks.forEach(link => {
+                        if (link.category === oldName) {
+                            link.category = newName;
+                        }
+                    });
+                    
+                    privateLinks.forEach(link => {
+                        if (link.category === oldName) {
+                            link.category = newName;
+                        }
+                    });
+                    
+                    updateCategorySelect();
+                    renderCategories();
+                    logAction('编辑分类名称', { oldName, newName });
+                } else {
+                    alert('编辑分类名称失败');
+                }
+            } catch (error) {
+                console.error('Error updating category:', error);
+                alert('编辑分类名称失败');
+            }
+        }
+    }
+
+    async function moveCategory(category, direction) {
+        if (!await validateToken()) {
+            return; 
+        }
+        
+        // 获取当前分类顺序
+        const categoryList = Object.keys(categories);
+        const currentIndex = categoryList.indexOf(category);
+        const newIndex = currentIndex + direction;
+        
+        if (newIndex < 0 || newIndex >= categoryList.length) {
+            return;
+        }
+        
+        // 交换分类在数组中的位置
+        const temp = categoryList[currentIndex];
+        categoryList[currentIndex] = categoryList[newIndex];
+        categoryList[newIndex] = temp;
+        
+        // 重建 categories 对象
+        const newCategories = {};
+        categoryList.forEach(cat => {
+            newCategories[cat] = categories[cat];
+        });
+        
+        // 清空原 categories 并复制新的
+        Object.keys(categories).forEach(key => delete categories[key]);
+        Object.assign(categories, newCategories);
+        
+        renderCategories();
+        saveLinks();
+        logAction('移动分类', { category, direction });
+    }
+
+    async function deleteCategory(category) {
+        if (!await validateToken()) {
+            return; 
+        }
+        if (confirm('确定要删除 "' + category + '" 分类吗？这将删除该分类下的所有链接。')) {
+            try {
+                const response = await fetch('/api/deleteCategory', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify({ category })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    delete categories[category];
+                    links = links.filter(link => link.category !== category);
+                    publicLinks = publicLinks.filter(link => link.category !== category);
+                    privateLinks = privateLinks.filter(link => link.category !== category);
+                    updateCategorySelect();
+                    saveLinks();
+                    renderCategories();
+                    logAction('删除分类', { category });
+                } else {
+                    alert('删除分类失败');
+                }
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                alert('删除分类失败');
+            }
+        }
+    }    
+
+    function renderCategories() {
+        const container = document.getElementById('sections-container');
+        if (!container) {
+            console.error('sections-container not found');
+            return;
+        }
+        container.innerHTML = '';
+    
+        const categoryList = Object.keys(categories);
+        
+        categoryList.forEach((category, index) => {
+            const section = document.createElement('div');
+            section.className = 'section';
+    
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'section-title-container';
+    
+            const title = document.createElement('div');
+            title.className = 'section-title';
+            title.textContent = '📁 ' + category;
+    
+            titleContainer.appendChild(title);
+    
+            if (isAdmin && categoryEditMode) {
+                const editNameBtn = document.createElement('button');
+                editNameBtn.textContent = '✎';
+                editNameBtn.className = 'edit-category-btn';
+                editNameBtn.onclick = () => editCategoryName(category);
+                titleContainer.appendChild(editNameBtn);
+    
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '✕';
+                deleteBtn.className = 'delete-category-btn';
+                deleteBtn.onclick = () => deleteCategory(category);
+                titleContainer.appendChild(deleteBtn);
+
+                const upBtn = document.createElement('button');
+                upBtn.textContent = '↑';
+                upBtn.className = 'category-up-btn';
+                upBtn.disabled = index === 0;
+                upBtn.onclick = () => moveCategory(category, -1);
+                titleContainer.appendChild(upBtn);
+
+                const downBtn = document.createElement('button');
+                downBtn.textContent = '↓';
+                downBtn.className = 'category-down-btn';
+                downBtn.disabled = index === categoryList.length - 1;
+                downBtn.onclick = () => moveCategory(category, 1);
+                titleContainer.appendChild(downBtn);
+            }
+    
+            const cardContainer = document.createElement('div');
+            cardContainer.className = 'card-container';
+            cardContainer.id = category;
+    
+            section.appendChild(titleContainer);
+            section.appendChild(cardContainer);
+    
+            container.appendChild(section);
+    
+            const categoryLinks = links.filter(link => link.category === category);
+            categoryLinks.forEach(link => {
+                createCard(link, cardContainer);
+            });
+        });
+        
+        renderCategoryNav();
+    
+        logAction('渲染分类', { categoryCount: Object.keys(categories).length, linkCount: links.length });
+    }    
+    
+    async function loadLinks() {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            headers['Authorization'] = token; 
+        }
+        
+        try {
+            console.log('Loading links from /api/getLinks...');
+            const response = await fetch('/api/getLinks?userId=testUser', {
+                headers: headers
+            });
+            
+            console.log('Response status:', response.status);
+            
+            const text = await response.text();
+            console.log('Response text:', text);
+            
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', e);
+                alert('加载链接时出错：响应格式错误');
+                return;
+            }
+            
+            console.log('Received data:', data); 
+            
+            if (data.error) {
+                console.error('API error:', data.error);
+                alert('加载链接时出错：' + data.error);
+                return;
+            }
+            
+            // 从 API 响应中获取 navTitle
+            if (data.navTitle) {
+                navTitle = data.navTitle;
+            }
+            
+            if (data.categories) {
+                Object.assign(categories, data.categories);
+            }
+            
+            publicLinks = data.links ? data.links.filter(link => !link.isPrivate) : [];
+            privateLinks = data.links ? data.links.filter(link => link.isPrivate) : [];
+            links = [...publicLinks, ...privateLinks];
+
+            renderCategories();
+            renderCategoryNav();
+            updateCategorySelect();
+            updateUIState();
+            logAction('读取链接', { 
+                publicCount: publicLinks.length, 
+                privateCount: privateLinks.length 
+            });
+        } catch (error) {
+            console.error('Error loading links:', error);
+            alert('加载链接时出错，请刷新页面重试');
+        }
+    }
+    
+    
+    function updateUIState() {
+        const adminBtn = document.getElementById('admin-mode-btn');
+        const addRemoveControls = document.querySelector('.add-remove-controls');
+        const fixedElements = document.querySelector('.fixed-elements');
+        const content = document.querySelector('.content');
+        const themeToggle = document.getElementById('theme-toggle');
+        const adminControls = document.querySelector('.admin-controls');
+    
+        if (isAdmin) {
+            if (adminBtn) adminBtn.textContent = "保  存";
+            if (addRemoveControls) addRemoveControls.style.display = 'flex';
+        } else {
+            if (adminBtn) adminBtn.textContent = "设  置";
+            if (addRemoveControls) addRemoveControls.style.display = 'none';
+        }
+    
+        if (fixedElements) fixedElements.style.display = 'block';
+        if (content) content.classList.add('loaded');
+        if (themeToggle) themeToggle.classList.add('loaded');
+        if (adminControls) adminControls.style.display = 'inline-block';
+        
+        const navTitleElement = document.getElementById('nav-title');
+        if (navTitleElement) navTitleElement.textContent = navTitle;
+
+        logAction('更新UI状态', { isAdmin, isLoggedIn });
+    }
+    
+    function loadSections() {
+        const container = document.getElementById('sections-container');
+        container.innerHTML = '';
+    
+        Object.keys(categories).forEach(category => {
+            const section = document.createElement('div');
+            section.className = 'section';
+    
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'section-title-container';
+    
+            const title = document.createElement('div');
+            title.className = 'section-title';
+            title.textContent = '📁 ' + category;
+    
+            titleContainer.appendChild(title);
+    
+            if (isAdmin) {
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除分类';
+                deleteBtn.className = 'delete-category-btn';
+                deleteBtn.style.display = 'none'; 
+                deleteBtn.onclick = () => deleteCategory(category);
+                titleContainer.appendChild(deleteBtn);
+            }
+    
+            const cardContainer = document.createElement('div');
+            cardContainer.className = 'card-container';
+            cardContainer.id = category;
+    
+            section.appendChild(titleContainer);
+            section.appendChild(cardContainer);
+    
+            let privateCount = 0;
+            let linkCount = 0;
+    
+            links.forEach(link => {
+                if (link.category === category) {
+                    if (link.isPrivate) privateCount++;
+                    linkCount++;
+                    createCard(link, cardContainer);
+                }
+            });
+    
+            container.appendChild(section);
+        });
+    
+        logAction('加载分类和链接', { isAdmin: isAdmin, linkCount: links.length, categoryCount: Object.keys(categories).length });
+    }
+
+    function createCard(link, container) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.setAttribute('draggable', isAdmin);
+        card.dataset.isPrivate = link.isPrivate;
+
+        const cardTop = document.createElement('div');
+        cardTop.className = 'card-top';
+
+        const defaultIconSVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>' +
+        '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>' +
+        '</svg>';
+        
+        const icon = document.createElement('img');
+        icon.className = 'card-icon';
+        
+        if (link.icon && link.icon.trim()) {
+            const iconUrl = link.icon.trim();
+            if (iconUrl.startsWith('data:') || iconUrl.startsWith('http://') || iconUrl.startsWith('https://')) {
+                icon.src = iconUrl;
+            } else {
+                icon.src = 'https://' + iconUrl;
+            }
+            icon.alt = 'Custom Icon';
+            icon.onerror = function() {
+                const domain = extractDomain(link.url);
+                this.src = 'https://favicon.yandex.net/favicon/' + domain;
+                this.alt = 'Website Icon';
+                this.onerror = function() {
+                    this.src = 'data:image/svg+xml;base64,' + btoa(defaultIconSVG);
+                };
+            };
+        } else {
+            const domain = extractDomain(link.url);
+            icon.src = 'https://favicon.yandex.net/favicon/' + domain;
+            icon.alt = 'Website Icon';
+            icon.onerror = function() {
+                this.src = 'data:image/svg+xml;base64,' + btoa(defaultIconSVG);
+            };
+        }
+        
+        function extractDomain(url) {
+            let domain;
+            try {
+                domain = new URL(url).hostname;
+            } catch (e) {
+                domain = url;
+            }
+            return domain;
+        }
+
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = link.name;
+
+        cardTop.appendChild(icon);
+        cardTop.appendChild(title);
+
+        const url = document.createElement('div');
+        url.className = 'card-url';
+        url.textContent = link.url;
+
+        card.appendChild(cardTop);
+        card.appendChild(url);
+
+        if (link.isPrivate) {
+            const privateTag = document.createElement('div');
+            privateTag.className = 'private-tag';
+            privateTag.textContent = '私密';
+            card.appendChild(privateTag);
+        }
+
+        let tipsElement = null;
+        if (link.tips && link.tips.trim()) {
+            tipsElement = document.createElement('div');
+            tipsElement.className = 'card-tips';
+            tipsElement.textContent = link.tips;
+            tipsElement.style.display = 'none';
+            document.body.appendChild(tipsElement);
+            
+            card.addEventListener('mouseenter', function(e) {
+                if (tipsElement) {
+                    tipsElement.style.display = 'block';
+                    updateTipsPosition(e, tipsElement);
+                }
+            });
+
+            card.addEventListener('mousemove', function(e) {
+                if (tipsElement && tipsElement.style.display === 'block') {
+                    updateTipsPosition(e, tipsElement);
+                }
+            });
+
+            card.addEventListener('mouseleave', function() {
+                if (tipsElement) {
+                    tipsElement.style.display = 'none';
+                }
+            });
+        }
+
+        function updateTipsPosition(e, tips) {
+            const cardRect = card.getBoundingClientRect();
+            let x = cardRect.right + 10;
+            let y = cardRect.top;
+            
+            if (x + tips.offsetWidth > window.innerWidth) {
+                x = cardRect.left - tips.offsetWidth - 10;
+            }
+            
+            if (x < 10) {
+                x = cardRect.left;
+                y = cardRect.bottom + 10;
+            }
+            
+            if (y + tips.offsetHeight > window.innerHeight) {
+                y = cardRect.top - tips.offsetHeight - 10;
+            }
+            
+            if (y < 10) {
+                y = 10;
+            }
+            
+            tips.style.left = x + 'px';
+            tips.style.top = y + 'px';
+        }
+
+        const correctedUrl = link.url.startsWith('http://') || link.url.startsWith('https://') ? link.url : 'http://' + link.url;
+
+        if (!isAdmin) {
+            card.addEventListener('click', () => {
+                window.open(correctedUrl, '_blank');
+                logAction('打开链接', { name: link.name, url: correctedUrl });
+            });
+        }
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '✕';
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.onclick = function (event) {
+            event.stopPropagation();
+            showConfirmDialog('确定要删除这个链接吗？', function() {
+                removeCard(card);
+            });
+        };
+        card.appendChild(deleteBtn);
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✎';
+        editBtn.className = 'edit-btn';
+        editBtn.onclick = function (event) {
+            event.stopPropagation();
+            editLink(link);
+        };
+        card.appendChild(editBtn);
+
+        updateCardStyle(card);
+
+        card.addEventListener('dragstart', dragStart);
+        card.addEventListener('dragover', dragOver);
+        card.addEventListener('dragend', dragEnd);
+        card.addEventListener('drop', drop);
+        card.addEventListener('touchstart', touchStart, { passive: false });
+
+        if (isAdmin && cardEditMode) {
+            editBtn.style.display = 'block';
+            deleteBtn.style.display = 'block';
+        }
+
+        container.appendChild(card);
+    }
+    
+    function updateCardStyle(card) {
+        if (isDarkTheme) {
+            card.style.backgroundColor = '#1e1e1e';
+            card.style.color = '#ffffff';
+            card.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.5)';
+        } else {
+            card.style.backgroundColor = 'white';
+            card.style.color = '#333';
+            card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+        }
+    }
+    
+    function updateCategorySelect() {
+        const categorySelect = document.getElementById('category-select');
+        categorySelect.innerHTML = '';
+    
+        Object.keys(categories).forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categorySelect.appendChild(option);
+        });
+    
+        logAction('更新分类选择', { categoryCount: Object.keys(categories).length });
+    }
+    
+    async function saveLinks() {
+        if (isAdmin && !(await validateToken())) {
+            return;
+        }
+
+        let allLinks = [...publicLinks, ...privateLinks];
+    
+        try {
+            await fetch('/api/saveOrder', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': localStorage.getItem('authToken')
+                },
+                body: JSON.stringify({ 
+                    userId: 'testUser', 
+                    links: allLinks,
+                    categories: categories
+                }),
+            });
+            logAction('保存链接', { linkCount: allLinks.length, categoryCount: Object.keys(categories).length });
+        } catch (error) {
+            logAction('保存链接失败', { error: error.message });
+            alert('保存链接失败，请重试');
+        }
+    }
+    
+    async function addLink() {
+        if (!await validateToken()) {
+            return; 
+        }
+        const name = document.getElementById('name-input').value;
+        const url = document.getElementById('url-input').value;
+        const tips = document.getElementById('desc-input').value;
+        const icon = document.getElementById('icon-input').value;
+        const category = document.getElementById('category-select').value;
+        const isPrivate = document.getElementById('private-checkbox').checked;
+
+        if (name && url && category) {
+            const newLink = { name, url, tips, icon, category, isPrivate };
+
+            try {
+                const response = await fetch('/api/addLink', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify(newLink)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (isPrivate) {
+                        privateLinks.push(newLink);
+                    } else {
+                        publicLinks.push(newLink);
+                    }
+        
+                    links = [...publicLinks, ...privateLinks];
+        
+                    if (isAdmin) {
+                        const container = document.getElementById(category);
+                        if (container) {
+                            createCard(newLink, container);
+                        } else {
+                            categories[category] = [];
+                            renderCategories();
+                        }
+                    }
+        
+                    saveLinks();
+        
+                    document.getElementById('name-input').value = '';
+                    document.getElementById('url-input').value = '';
+                    document.getElementById('desc-input').value = '';
+                    document.getElementById('icon-input').value = '';
+                    document.getElementById('private-checkbox').checked = false;
+                    hideAddDialog();
+        
+                    logAction('添加卡片', { name, url, category, isPrivate });
+                } else {
+                    alert('添加链接失败');
+                }
+            } catch (error) {
+                console.error('Error adding link:', error);
+                alert('添加链接失败');
+            }
+        }
+    }
+
+    function editLink(link) {
+        document.getElementById('edit-link-id').value = link.url;
+        document.getElementById('name-input').value = link.name;
+        document.getElementById('url-input').value = link.url;
+        document.getElementById('desc-input').value = link.tips || '';
+        document.getElementById('icon-input').value = link.icon || '';
+        document.getElementById('category-select').value = link.category;
+        document.getElementById('private-checkbox').checked = link.isPrivate || false;
+        document.getElementById('dialog-overlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        logAction('编辑链接', { name: link.name, url: link.url });
+    }
+
+    async function submitLink() {
+        if (!await validateToken()) {
+            return; 
+        }
+        const editUrl = document.getElementById('edit-link-id').value;
+        const name = document.getElementById('name-input').value;
+        const url = document.getElementById('url-input').value;
+        const tips = document.getElementById('desc-input').value;
+        const icon = document.getElementById('icon-input').value;
+        const category = document.getElementById('category-select').value;
+        const isPrivate = document.getElementById('private-checkbox').checked;
+
+        if (!name || !url || !category) {
+            alert('名称、地址和分类为必填项');
+            return;
+        }
+
+        const linkData = { name, url, tips, icon, category, isPrivate };
+
+        try {
+            if (editUrl) {
+                const response = await fetch('/api/updateLink', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify({ oldUrl: editUrl, ...linkData })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 更新时保留原始数据，确保tips字段正确处理
+                    links = links.map(l => l.url === editUrl ? { ...l, ...linkData } : l);
+                    if (linkData.isPrivate) {
+                        privateLinks = privateLinks.map(l => l.url === editUrl ? { ...l, ...linkData } : l);
+                    } else {
+                        publicLinks = publicLinks.map(l => l.url === editUrl ? { ...l, ...linkData } : l);
+                    }
+                    renderCategories();
+                    logAction('更新链接', { name, url, category });
+                } else {
+                    alert('更新链接失败');
+                }
+            } else {
+                const response = await fetch('/api/addLink', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify(linkData)
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (linkData.isPrivate) {
+                        privateLinks.push(linkData);
+                    } else {
+                        publicLinks.push(linkData);
+                    }
+                    links = [...publicLinks, ...privateLinks];
+                    
+                    if (isAdmin) {
+                        const container = document.getElementById(category);
+                        if (container) {
+                            createCard(linkData, container);
+                        } else {
+                            categories[category] = [];
+                            renderCategories();
+                        }
+                    }
+                    logAction('添加卡片', { name, url, category, isPrivate });
+                } else {
+                    alert('添加链接失败');
+                }
+            }
+
+            document.getElementById('edit-link-id').value = '';
+            document.getElementById('name-input').value = '';
+            document.getElementById('url-input').value = '';
+            document.getElementById('desc-input').value = '';
+            document.getElementById('icon-input').value = '';
+            document.getElementById('private-checkbox').checked = false;
+            hideAddDialog();
+
+        } catch (error) {
+            console.error('Error submitting link:', error);
+            alert('操作失败，请重试');
+        }
+    }
+
+    async function removeCard(card) {
+        if (!await validateToken()) {
+            return; 
+        }
+        const name = card.querySelector('.card-title').textContent;
+        const url = card.querySelector('.card-url').textContent;
+        const isPrivate = card.dataset.isPrivate === 'true';
+        
+        try {
+            const response = await fetch('/api/deleteLink', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': localStorage.getItem('authToken')
+                },
+                body: JSON.stringify({ url })
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                links = links.filter(link => link.url !== url);
+                if (isPrivate) {
+                    privateLinks = privateLinks.filter(link => link.url !== url);
+                } else {
+                    publicLinks = publicLinks.filter(link => link.url !== url);
+                }
+            
+                for (const key in categories) {
+                    categories[key] = categories[key].filter(link => link.url !== url);
+                }
+            
+                card.remove();
+            
+                saveLinks();
+            
+                logAction('删除卡片', { name, url, isPrivate });
+            } else {
+                alert('删除链接失败');
+            }
+        } catch (error) {
+            console.error('Error removing card:', error);
+            alert('删除链接失败');
+        }
+    }
+    
+    let draggedCard = null;
+    let touchStartX, touchStartY;
+    
+    function touchStart(event) {
+        // 如果点击的是按钮，不处理拖拽
+        if (event.target.closest('.delete-btn') || 
+            event.target.closest('.edit-btn') ||
+            event.target.closest('.card-edit-toggle-btn') ||
+            event.target.closest('.round-btn')) {
+            return;
+        }
+        
+        if (!isAdmin) {
+            return;
+        }
+        draggedCard = event.target.closest('.card');
+        if (!draggedCard) return;
+    
+        event.preventDefault();
+        const touch = event.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+    
+        draggedCard.classList.add('dragging');
+        
+        document.addEventListener('touchmove', touchMove, { passive: false });
+        document.addEventListener('touchend', touchEnd);
+    
+    }
+    
+    function touchMove(event) {
+        if (!draggedCard) return;
+        event.preventDefault();
+    
+        const touch = event.touches[0];
+        const currentX = touch.clientX;
+        const currentY = touch.clientY;
+
+        const deltaX = currentX - touchStartX;
+        const deltaY = currentY - touchStartY;
+        draggedCard.style.transform = "translate(" + deltaX + "px, " + deltaY + "px)";
+    
+        const target = findCardUnderTouch(currentX, currentY);
+        if (target && target !== draggedCard) {
+            const container = target.parentElement;
+            const targetRect = target.getBoundingClientRect();
+    
+            if (currentX < targetRect.left + targetRect.width / 2) {
+                container.insertBefore(draggedCard, target);
+            } else {
+                container.insertBefore(draggedCard, target.nextSibling);
+            }
+        }
+    }
+    
+    function touchEnd(event) {
+        if (!draggedCard) return;
+    
+        const card = draggedCard;
+        const targetCategory = card.closest('.card-container').id;
+    
+        validateToken().then(isValid => {
+            if (isValid && card) {
+                updateCardCategory(card, targetCategory);
+                saveCardOrder().catch(error => {
+                    console.error('Save failed:', error);
+                });
+            }
+            cleanupDragState();
+        });
+    }
+    
+    function findCardUnderTouch(x, y) {
+        const cards = document.querySelectorAll('.card:not(.dragging)');
+        return Array.from(cards).find(card => {
+            const rect = card.getBoundingClientRect();
+            return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        });
+    }
+
+    function dragStart(event) {
+        if (!isAdmin) {
+            event.preventDefault();
+            return;
+        }
+        draggedCard = event.target.closest('.card');
+        if (!draggedCard) return;
+    
+        draggedCard.classList.add('dragging');
+        event.dataTransfer.effectAllowed = "move";
+        logAction('开始拖拽卡片', { name: draggedCard.querySelector('.card-title').textContent });
+    }
+    
+    function dragOver(event) {
+        if (!isAdmin) {
+            event.preventDefault();
+            return;
+        }
+        event.preventDefault();
+        const target = event.target.closest('.card');
+        if (target && target !== draggedCard) {
+            const container = target.parentElement;
+            const mousePositionX = event.clientX;
+            const targetRect = target.getBoundingClientRect();
+    
+            if (mousePositionX < targetRect.left + targetRect.width / 2) {
+                container.insertBefore(draggedCard, target);
+            } else {
+                container.insertBefore(draggedCard, target.nextSibling);
+            }
+        }
+    }
+    
+    function cleanupDragState() {
+        if (draggedCard) {
+            draggedCard.classList.remove('dragging');
+            draggedCard.style.transform = '';
+            draggedCard = null;
+        }
+        
+        document.removeEventListener('touchmove', touchMove);
+        document.removeEventListener('touchend', touchEnd);
+        
+        touchStartX = null;
+        touchStartY = null;
+    }
+
+    function drop(event) {
+        if (!isAdmin) {
+            event.preventDefault();
+            return;
+        }
+        event.preventDefault();
+        
+        const card = draggedCard;
+        const targetCategory = event.target.closest('.card-container').id;
+        
+        validateToken().then(isValid => {
+            if (isValid && card) {
+                updateCardCategory(card, targetCategory);
+                saveCardOrder().catch(error => {
+                    console.error('Save failed:', error);
+                });
+            }
+            cleanupDragState();
+        });
+    }
+
+    function dragEnd(event) {
+        if (draggedCard) {
+            draggedCard.classList.remove('dragging');
+            logAction('拖拽卡片结束');
+        }
+    }
+  
+    function updateCardCategory(card, newCategory) {
+        const cardTitle = card.querySelector('.card-title').textContent;
+        const cardUrl = card.querySelector('.card-url').textContent;
+        const isPrivate = card.dataset.isPrivate === 'true';
+    
+        const linkIndex = links.findIndex(link => link.url === cardUrl);
+        if (linkIndex !== -1) {
+            links[linkIndex].category = newCategory;
+        }
+    
+        const linkArray = isPrivate ? privateLinks : publicLinks;
+        const arrayIndex = linkArray.findIndex(link => link.url === cardUrl);
+        if (arrayIndex !== -1) {
+            linkArray[arrayIndex].category = newCategory;
+        }
+    
+        card.dataset.category = newCategory;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const cardContainers = document.querySelectorAll('.card-container');
+        cardContainers.forEach(container => {
+            container.addEventListener('touchstart', touchStart, { passive: false });
+        });
+        
+        // 回到顶部按钮逻辑
+        var backToTopBtn = document.getElementById('back-to-top');
+        
+        function updateBackToTop() {
+            if (backToTopBtn) {
+                if (window.scrollY > 300) {
+                    backToTopBtn.classList.add('show');
+                } else {
+                    backToTopBtn.classList.remove('show');
+                }
+            }
+        }
+        
+        window.addEventListener('scroll', updateBackToTop);
+        updateBackToTop(); // 初始检查
+    });    
+    
+    async function saveCardOrder() {
+        if (!await validateToken()) {
+            return; 
+        }
+        const containers = document.querySelectorAll('.card-container');
+        let newPublicLinks = [];
+        let newPrivateLinks = [];
+        let newCategories = {};
+    
+        containers.forEach(container => {
+            const category = container.id;
+            newCategories[category] = [];
+
+            [...container.children].forEach(card => {
+                const url = card.querySelector('.card-url').textContent;
+                const name = card.querySelector('.card-title').textContent;
+                const isPrivate = card.dataset.isPrivate === 'true';
+                const tipsElement = card.querySelector('.card-tips');
+                const tips = tipsElement ? tipsElement.textContent : '';
+                // 从原始数据中找到对应的链接以保留 icon 字段
+                const originalLink = links.find(l => l.url === url);
+                const icon = originalLink ? originalLink.icon : '';
+                card.dataset.category = category;
+                const link = { name, url, tips, icon, category, isPrivate };
+                if (isPrivate) {
+                    newPrivateLinks.push(link);
+                } else {
+                    newPublicLinks.push(link);
+                }
+                newCategories[category].push(link); 
+            });
+        });
+    
+        publicLinks.length = 0;
+        publicLinks.push(...newPublicLinks);
+        privateLinks.length = 0;
+        privateLinks.push(...newPrivateLinks);
+        Object.keys(categories).forEach(key => delete categories[key]);
+        Object.assign(categories, newCategories);
+    
+        logAction('保存卡片顺序', { 
+            publicCount: newPublicLinks.length, 
+            privateCount: newPrivateLinks.length, 
+            categoryCount: Object.keys(newCategories).length 
+        });
+    
+        try {
+            const response = await fetch('/api/saveOrder', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': localStorage.getItem('authToken')
+                },
+                body: JSON.stringify({ 
+                    userId: 'testUser', 
+                    links: [...newPublicLinks, ...newPrivateLinks],
+                    categories: newCategories
+                }),
+            });
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error('Failed to save order');
+            }
+            logAction('保存卡片顺序', { publicCount: newPublicLinks.length, privateCount: newPrivateLinks.length, categoryCount: Object.keys(newCategories).length });
+        } catch (error) {
+            logAction('保存顺序失败', { error: error.message });
+            alert('保存顺序失败，请重试');
+        }
+    }             
+    
+    function reloadCardsAsAdmin() {
+        document.querySelectorAll('.card-container').forEach(container => {
+            container.innerHTML = '';
+        });
+        loadLinks().then(() => {
+            if (isDarkTheme) {
+                applyDarkTheme();
+            }
+        });
+        logAction('重新加载卡片（管理员模式）');
+    }
+    
+    document.getElementById('login-password').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleLogin();
+        }
+    });
+    
+    async function handleLogin() {
+        const passwordInput = document.getElementById('login-password');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        const loginLoading = document.getElementById('login-loading');
+        
+        const password = passwordInput.value.trim();
+        if (!password) {
+            loginError.textContent = '请输入密码';
+            loginError.style.display = 'block';
+            return;
+        }
+        
+        loginBtn.disabled = true;
+        loginBtn.textContent = '验证中...';
+        loginLoading.style.display = 'block';
+        loginError.style.display = 'none';
+        
+        try {
+            const result = await verifyPassword(password);
+            console.log('Login result:', result);
+            
+            if (result && result.valid) {
+                isLoggedIn = true;
+                localStorage.setItem('authToken', result.token);
+                console.log('Token saved:', result.token); 
+                logAction('登录成功');
+                
+                document.getElementById('login-overlay').style.display = 'none';
+                document.querySelector('.fixed-elements').style.display = 'block';
+                loadLinks();
+                updateUIState();
+            } else {
+                const errorMsg = result && result.error ? result.error : '密码错误';
+                loginError.textContent = errorMsg + '，请重试';
+                loginError.style.display = 'block';
+                passwordInput.value = '';
+                passwordInput.focus();
+                logAction('登录失败', { reason: errorMsg });
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            const errorMsg = error.message || '网络错误';
+            loginError.textContent = '登录出错：' + errorMsg;
+            loginError.style.display = 'block';
+            logAction('登录失败', { reason: errorMsg });
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = '登 录';
+            loginLoading.style.display = 'none';
+        }
+    }
+    
+    async function handleMainButtonClick() {
+        const adminBtn = document.getElementById('admin-mode-btn');
+        
+        if (isAdmin) {
+            if (!await validateToken()) {
+                return; 
+            }
+            isAdmin = false;
+            removeMode = false;
+            isRemoveCategoryMode = false;
+            cardEditMode = false;
+            categoryEditMode = false;
+            saveCardOrder().then(() => {
+                renderCategories();
+                updateUIState();
+                logAction('保存并退出设置');
+            }).catch(error => {
+                console.error('Save failed:', error);
+                alert('保存失败');
+            });
+        } else {
+            if (!await validateToken()) {
+                return; 
+            }
+
+            try {
+                const response = await fetch('/api/backupData', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify({ 
+                        sourceUserId: 'testUser', 
+                        backupUserId: 'backup' 
+                    }),
+                });
+                const result = await response.json();
+                if (result.success) {
+                    logAction('数据备份成功');
+                } else {
+                    throw new Error('备份失败');
+                }
+            } catch (error) {
+                logAction('数据备份失败', { error: error.message });
+            }
+
+            isAdmin = true;
+            cardEditMode = false;
+            categoryEditMode = false;
+            adminBtn.textContent = "保  存";
+            const addRemoveControls = document.querySelector('.add-remove-controls');
+            addRemoveControls.style.display = 'flex';
+            renderCategories();
+            logAction('进入设置');
+            updateUIState();
+        }
+    }
+    
+    function scrollToTop() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+    
+    function applyDarkTheme() {
+        document.body.style.backgroundColor = '#121212';
+        document.body.style.color = '#ffffff';
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.backgroundColor = isDarkTheme ? '#1e1e1e' : 'white';
+            card.style.color = isDarkTheme ? '#ffffff' : '#333';
+            card.style.boxShadow = isDarkTheme
+                ? '0 4px 8px rgba(0, 0, 0, 0.5)'
+                : '0 2px 8px rgba(0, 0, 0, 0.06)';
+        });
+        logAction('应用暗色主题');
+    }
+    
+    function showAddDialog() {
+        // 清空表单，准备新增
+        document.getElementById('edit-link-id').value = '';
+        document.getElementById('name-input').value = '';
+        document.getElementById('url-input').value = '';
+        document.getElementById('desc-input').value = '';
+        document.getElementById('icon-input').value = '';
+        document.getElementById('private-checkbox').checked = false;
+        document.getElementById('dialog-overlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        logAction('显示添加链接对话框');
+    }
+    
+    function hideAddDialog() {
+        document.getElementById('dialog-overlay').style.display = 'none';
+        document.body.style.overflow = '';
+        logAction('隐藏添加链接对话框');
+    }
+    
+    function toggleCardEditMode() {
+        cardEditMode = !cardEditMode;
+        renderCategories();
+        logAction('切换卡片编辑模式', { cardEditMode });
+    }
+    
+    function toggleCategoryEditMode() {
+        categoryEditMode = !categoryEditMode;
+        renderCategories();
+        logAction('切换分类编辑模式', { categoryEditMode });
+    }
+    
+    function toggleTheme() {
+        isDarkTheme = !isDarkTheme;
+    
+        document.body.style.backgroundColor = isDarkTheme ? '#121212' : '#e8f4ea';
+        document.body.style.color = isDarkTheme ? '#ffffff' : '#333';
+    
+        const cards = document.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.backgroundColor = isDarkTheme ? '#1e1e1e' : 'white';
+            card.style.color = isDarkTheme ? '#ffffff' : '#333';
+            card.style.boxShadow = isDarkTheme
+                ? '0 4px 8px rgba(0, 0, 0, 0.5)'
+                : '0 2px 8px rgba(0, 0, 0, 0.06)';
+        });
+    
+        const fixedElements = document.querySelectorAll('.fixed-elements');
+        fixedElements.forEach(element => {
+            element.style.backgroundColor = isDarkTheme ? '#121212' : '#e8f4ea';
+            element.style.color = isDarkTheme ? '#ffffff' : '#333';
+        });
+    
+        const dialogBox = document.getElementById('dialog-box');
+        dialogBox.style.backgroundColor = isDarkTheme ? '#1e1e1e' : '#ffffff';
+        dialogBox.style.color = isDarkTheme ? '#ffffff' : '#333';
+    
+        const inputs = document.querySelectorAll('input[type="text"], input[type="password"], select');
+        inputs.forEach(input => {
+            input.style.backgroundColor = isDarkTheme ? '#444' : '#fff';
+            input.style.color = isDarkTheme ? '#fff' : '#333';
+            input.style.borderColor = isDarkTheme ? '#555' : '#ccc';
+        });
+        
+        logAction('切换主题', { isDarkTheme });
+    }
+    
+    async function verifyPassword(inputPassword) {
+        try {
+            console.log('Attempting to verify password...');
+            const response = await fetch('/api/verifyPassword', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: inputPassword }),
+            });
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Password verification failed:', errorData);
+                throw new Error(errorData.error || '验证失败');
+            }
+            
+            const result = await response.json();
+            console.log('Password verification result:', result);
+            return result;
+        } catch (error) {
+            console.error('Password verification error:', error);
+            throw error;
+        }
+    }
+
+    async function validateToken() {
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+            isLoggedIn = false;
+            updateUIState();
+            return false;
+        }
+
+        try {
+            const response = await fetch('/api/getLinks?userId=testUser', {
+                headers: { 'Authorization': token }
+            });
+            
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                isLoggedIn = false;
+                updateUIState();
+                return false;
+            }
+            
+            isLoggedIn = true;
+            return true;
+        } catch (error) {
+            console.error('Token validation error:', error);
+            return false;
+        }
+    }
+
+    // 获取网站名称
+    async function fetchNavTitle() {
+        try {
+            const response = await fetch('/api/getLinks?userId=testUser');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.navTitle) {
+                    navTitle = data.navTitle;
+                    const navTitleElement = document.getElementById('nav-title');
+                    if (navTitleElement) navTitleElement.textContent = navTitle;
+                }
+            }
+        } catch (error) {
+            console.error('获取网站名称失败:', error);
+        }
+    }
+
+    // 页面初始化时检查token
+    async function initApp() {
+        // 先获取网站名称
+        await fetchNavTitle();
+        
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            try {
+                const response = await fetch('/api/getLinks?userId=testUser', {
+                    headers: { 'Authorization': token }
+                });
+                
+                if (response.status === 200) {
+                    isLoggedIn = true;
+                    document.querySelector('.fixed-elements').style.display = 'block';
+                    loadLinks();
+                    logAction('自动登录成功');
+                    return;
+                }
+            } catch (error) {
+                console.error('Auto login error:', error);
+            }
+        }
+        // 没有有效token，显示登录框
+        document.getElementById('login-overlay').style.display = 'flex';
+    }
+
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+
+</html>
