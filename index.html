@@ -1579,6 +1579,61 @@
                     tipsElement.style.display = 'none';
                 }
             });
+            
+            let longPressTimer = null;
+            let isLongPress = false;
+            
+            card.addEventListener('touchstart', function(e) {
+                if (tipsElement && !cardEditMode) {
+                    isLongPress = false;
+                    longPressTimer = setTimeout(function() {
+                        isLongPress = true;
+                        tipsElement.style.display = 'block';
+                        // 使用触摸位置计算位置
+                        const touch = e.touches[0];
+                        const cardRect = card.getBoundingClientRect();
+                        let x = cardRect.right + 10;
+                        let y = cardRect.top;
+                        
+                        if (x + tipsElement.offsetWidth > window.innerWidth) {
+                            x = cardRect.left - tipsElement.offsetWidth - 10;
+                        }
+                        
+                        if (x < 10) {
+                            x = cardRect.left;
+                            y = cardRect.bottom + 10;
+                        }
+                        
+                        if (y + tipsElement.offsetHeight > window.innerHeight) {
+                            y = cardRect.top - tipsElement.offsetHeight - 10;
+                        }
+                        
+                        if (y < 10) {
+                            y = 10;
+                        }
+                        
+                        tipsElement.style.left = x + 'px';
+                        tipsElement.style.top = y + 'px';
+                    }, 500);
+                }
+            });
+            
+            card.addEventListener('touchend', function() {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                if (tipsElement) {
+                    tipsElement.style.display = 'none';
+                }
+            });
+            
+            card.addEventListener('touchmove', function() {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
         }
 
         function updateTipsPosition(e, tips) {
