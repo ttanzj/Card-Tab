@@ -25,7 +25,7 @@
 │       ├── updateLink.js     # 更新链接
 │       └── verifyPassword.js # 密码验证
 ├── index.html                # 主页面
-└── wrangler.toml             # Cloudflare 配置文件
+└── wrangler.toml             # Cloudflare 配置文件，本地调试用，部署不用
 ```
 
 ## 部署步骤
