@@ -1002,6 +1002,8 @@
     
     function handleLogout() {
         localStorage.removeItem('authToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('kvBinding');
         isLoggedIn = false;
         isAdmin = false;
         document.getElementById('login-overlay').style.display = 'flex';
@@ -1333,9 +1335,11 @@
             headers['Authorization'] = token; 
         }
         
+        const userId = localStorage.getItem('userId') || 'testUser';
+        
         try {
             console.log('Loading links from /api/getLinks...');
-            const response = await fetch('/api/getLinks?userId=testUser', {
+            const response = await fetch('/api/getLinks?userId=' + encodeURIComponent(userId), {
                 headers: headers
             });
             
@@ -1670,6 +1674,7 @@
         }
 
         let allLinks = [...publicLinks, ...privateLinks];
+        const userId = localStorage.getItem('userId') || 'testUser';
     
         try {
             await fetch('/api/saveOrder', {
@@ -1679,7 +1684,7 @@
                     'Authorization': localStorage.getItem('authToken')
                 },
                 body: JSON.stringify({ 
-                    userId: 'testUser', 
+                    userId: userId, 
                     links: allLinks,
                     categories: categories
                 }),
@@ -2147,6 +2152,7 @@
             categoryCount: Object.keys(newCategories).length 
         });
     
+        const userId = localStorage.getItem('userId') || 'testUser';
         try {
             const response = await fetch('/api/saveOrder', {
                 method: 'POST',
@@ -2155,7 +2161,7 @@
                     'Authorization': localStorage.getItem('authToken')
                 },
                 body: JSON.stringify({ 
-                    userId: 'testUser', 
+                    userId: userId, 
                     links: [...newPublicLinks, ...newPrivateLinks],
                     categories: newCategories
                 }),
@@ -2214,8 +2220,12 @@
             if (result && result.valid) {
                 isLoggedIn = true;
                 localStorage.setItem('authToken', result.token);
+                localStorage.setItem('userId', result.userId);
+                localStorage.setItem('kvBinding', result.kvBinding);
                 console.log('Token saved:', result.token); 
-                logAction('登录成功');
+                console.log('User ID:', result.userId);
+                console.log('KV Binding:', result.kvBinding);
+                logAction('登录成功', { userId: result.userId, kvBinding: result.kvBinding });
                 
                 document.getElementById('login-overlay').style.display = 'none';
                 document.querySelector('.fixed-elements').style.display = 'block';
@@ -2267,6 +2277,7 @@
                 return; 
             }
 
+            const userId = localStorage.getItem('userId') || 'testUser';
             try {
                 const response = await fetch('/api/backupData', {
                     method: 'POST',
@@ -2275,7 +2286,7 @@
                         'Authorization': localStorage.getItem('authToken')
                     },
                     body: JSON.stringify({ 
-                        sourceUserId: 'testUser', 
+                        sourceUserId: userId, 
                         backupUserId: 'backup' 
                     }),
                 });

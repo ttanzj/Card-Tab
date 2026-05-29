@@ -38,20 +38,29 @@ export async function onRequestPost(context) {
       });
     }
     
-    const isValid = password === adminPassword;
+    const users = [
+      { password: env.ADMIN_PASSWORD, kvBinding: 'CARD_ORDER', userId: 'testUser' },
+      { password: env.ADMIN_PASSWORD1, kvBinding: 'CARD_ORDER1', userId: 'testUser1' },
+      { password: env.ADMIN_PASSWORD2, kvBinding: 'CARD_ORDER2', userId: 'testUser2' },
+      { password: env.ADMIN_PASSWORD3, kvBinding: 'CARD_ORDER3', userId: 'testUser3' }
+    ].filter(user => user.password);
     
-    if (isValid) {
+    const matchedUser = users.find(user => password === user.password);
+    
+    if (matchedUser) {
       const timestamp = Date.now();
-      const tokenData = timestamp + "_" + adminPassword; 
+      const tokenData = timestamp + "_" + matchedUser.password + "_" + matchedUser.kvBinding; 
       const encoder = new TextEncoder();
       const data = encoder.encode(tokenData);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
       
-      const token = timestamp + "." + btoa(String.fromCharCode(...new Uint8Array(hashBuffer)));
+      const token = timestamp + "." + btoa(String.fromCharCode(...new Uint8Array(hashBuffer))) + "." + matchedUser.kvBinding;
       
       return new Response(JSON.stringify({ 
         valid: true,
-        token: token 
+        token: token,
+        userId: matchedUser.userId,
+        kvBinding: matchedUser.kvBinding
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }

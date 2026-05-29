@@ -11,29 +11,51 @@ export async function onRequestPost(context) {
       return {
         isValid: false,
         status: 401,
-        response: { error: 'Unauthorized', message: '未登录或登录已过期' }
+        response: { error: 'Unauthorized', message: '未登录或登录已过期' },
+        kvBinding: null
       };
     }
 
     try {
-      const [timestamp, hash] = authToken.split('.');
-      // const tokenTimestamp = parseInt(timestamp);
-      // const now = Date.now();
+      const parts = authToken.split('.');
+      if (parts.length !== 3) {
+        return {
+          isValid: false,
+          status: 401,
+          response: { 
+            error: 'Invalid token',
+            tokenInvalid: true,
+            message: '登录状态无效，请重新登录'
+          },
+          kvBinding: null
+        };
+      }
+
+      const [timestamp, hash, kvBinding] = parts;
       
-      // const FIFTEEN_MINUTES = 15 * 60 * 1000;
-      // if (now - tokenTimestamp > FIFTEEN_MINUTES) {
-      //   return {
-      //     isValid: false,
-      //     status: 401,
-      //     response: { 
-      //       error: 'Token expired',
-      //       tokenExpired: true,
-      //       message: '登录已过期，请重新登录'
-      //     }
-      //   };
-      // }
+      const users = [
+        { password: env.ADMIN_PASSWORD, kvBinding: 'CARD_ORDER' },
+        { password: env.ADMIN_PASSWORD1, kvBinding: 'CARD_ORDER1' },
+        { password: env.ADMIN_PASSWORD2, kvBinding: 'CARD_ORDER2' },
+        { password: env.ADMIN_PASSWORD3, kvBinding: 'CARD_ORDER3' }
+      ].filter(user => user.password);
+
+      const matchedUser = users.find(user => user.kvBinding === kvBinding);
       
-      const tokenData = timestamp + "_" + env.ADMIN_PASSWORD;
+      if (!matchedUser) {
+        return {
+          isValid: false,
+          status: 401,
+          response: { 
+            error: 'Invalid token',
+            tokenInvalid: true,
+            message: '登录状态无效，请重新登录'
+          },
+          kvBinding: null
+        };
+      }
+
+      const tokenData = timestamp + "_" + matchedUser.password + "_" + kvBinding;
       const encoder = new TextEncoder();
       const data = encoder.encode(tokenData);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -47,11 +69,12 @@ export async function onRequestPost(context) {
             error: 'Invalid token',
             tokenInvalid: true,
             message: '登录状态无效，请重新登录'
-          }
+          },
+          kvBinding: null
         };
       }
 
-      return { isValid: true };
+      return { isValid: true, kvBinding: kvBinding };
     } catch (error) {
       return {
         isValid: false,
@@ -60,7 +83,8 @@ export async function onRequestPost(context) {
           error: 'Invalid token',
           tokenInvalid: true,
           message: '登录验证失败，请重新登录'
-        }
+        },
+        kvBinding: null
       };
     }
   }
@@ -78,8 +102,10 @@ export async function onRequestPost(context) {
   try {
     const { category } = await request.json();
     const userId = 'testUser';
+    const kvBinding = validation.kvBinding || 'CARD_ORDER';
+    const kvStore = env[kvBinding];
     
-    let data = await env.CARD_ORDER.get(userId);
+    let data = await kvStore.get(userId);
     
     if (!data) {
       return new Response(JSON.stringify({ 
@@ -115,7 +141,7 @@ export async function onRequestPost(context) {
     
     delete parsedData.categories[category];
     
-    await env.CARD_ORDER.put(userId, JSON.stringify(parsedData));
+    await kvStore.put(userId, JSON.stringify(parsedData));
     
     return new Response(JSON.stringify({ 
       success: true,

@@ -9,15 +9,51 @@ export async function onRequestGet(context) {
       return {
         isValid: false,
         status: 401,
-        response: { error: 'Unauthorized', message: '未登录或登录已过期' }
+        response: { error: 'Unauthorized', message: '未登录或登录已过期' },
+        kvBinding: null
       };
     }
 
     try {
-      const [timestamp, hash] = authToken.split('.');
+      const parts = authToken.split('.');
+      if (parts.length !== 3) {
+        return {
+          isValid: false,
+          status: 401,
+          response: { 
+            error: 'Invalid token',
+            tokenInvalid: true,
+            message: '登录状态无效，请重新登录'
+          },
+          kvBinding: null
+        };
+      }
+
+      const [timestamp, hash, kvBinding] = parts;
       
-      const adminPassword = env.ADMIN_PASSWORD;
-      const tokenData = timestamp + "_" + adminPassword; 
+      const users = [
+        { password: env.ADMIN_PASSWORD, kvBinding: 'CARD_ORDER' },
+        { password: env.ADMIN_PASSWORD1, kvBinding: 'CARD_ORDER1' },
+        { password: env.ADMIN_PASSWORD2, kvBinding: 'CARD_ORDER2' },
+        { password: env.ADMIN_PASSWORD3, kvBinding: 'CARD_ORDER3' }
+      ].filter(user => user.password);
+
+      const matchedUser = users.find(user => user.kvBinding === kvBinding);
+      
+      if (!matchedUser) {
+        return {
+          isValid: false,
+          status: 401,
+          response: { 
+            error: 'Invalid token',
+            tokenInvalid: true,
+            message: '登录状态无效，请重新登录'
+          },
+          kvBinding: null
+        };
+      }
+
+      const tokenData = timestamp + "_" + matchedUser.password + "_" + kvBinding;
       const encoder = new TextEncoder();
       const data = encoder.encode(tokenData);
       const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -31,11 +67,12 @@ export async function onRequestGet(context) {
             error: 'Invalid token',
             tokenInvalid: true,
             message: '登录状态无效，请重新登录'
-          }
+          },
+          kvBinding: null
         };
       }
 
-      return { isValid: true };
+      return { isValid: true, kvBinding: kvBinding };
     } catch (error) {
       return {
         isValid: false,
@@ -44,7 +81,8 @@ export async function onRequestGet(context) {
           error: 'Invalid token',
           tokenInvalid: true,
           message: '登录验证失败，请重新登录'
-        }
+        },
+        kvBinding: null
       };
     }
   }
@@ -53,15 +91,26 @@ export async function onRequestGet(context) {
     let data = null;
     let foundKeyName = null;
     let allKeys = [];
+    let kvBinding = 'CARD_ORDER';
     
     console.log('[getLinks] Starting request, userId:', userId);
     console.log('[getLinks] env keys:', Object.keys(env || {}));
+
+    let validationResult = null;
+    if (authToken) {
+      validationResult = await validateServerToken(authToken, env);
+      if (validationResult.kvBinding) {
+        kvBinding = validationResult.kvBinding;
+      }
+    }
+
+    const kvStore = env[kvBinding];
     
-    if (env.CARD_ORDER && typeof env.CARD_ORDER.get === 'function') {
+    if (kvStore && typeof kvStore.get === 'function') {
       try {
-        if (typeof env.CARD_ORDER.list === 'function') {
+        if (typeof kvStore.list === 'function') {
           try {
-            const listResult = await env.CARD_ORDER.list({ limit: 50 });
+            const listResult = await kvStore.list({ limit: 50 });
             allKeys = listResult.keys.map(k => k.name);
             console.log('[getLinks] KV keys available:', allKeys);
           } catch (listError) {
@@ -70,7 +119,7 @@ export async function onRequestGet(context) {
         }
         
         console.log('[getLinks] Attempting to read requested userId:', userId);
-        data = await env.CARD_ORDER.get(userId);
+        data = await kvStore.get(userId);
         if (data) {
           foundKeyName = userId;
           console.log('[getLinks] Successfully read userId:', userId);
@@ -81,7 +130,7 @@ export async function onRequestGet(context) {
         console.error('[getLinks] KV read error:', kvError);
       }
     } else {
-      console.error('[getLinks] CARD_ORDER KV binding is not available');
+      console.error('[getLinks] KV binding ' + kvBinding + ' is not available');
     }
 
     const navTitle = env.NAV_TITLE || '我的导航';
@@ -92,10 +141,12 @@ export async function onRequestGet(context) {
         console.log('[getLinks] Parsed data:', JSON.stringify(parsedData).substring(0, 500));
         
         if (authToken) {
-          const validation = await validateServerToken(authToken, env);
-          if (!validation.isValid) {
-            return new Response(JSON.stringify(validation.response), {
-              status: validation.status,
+          if (!validationResult) {
+            validationResult = await validateServerToken(authToken, env);
+          }
+          if (!validationResult.isValid) {
+            return new Response(JSON.stringify(validationResult.response), {
+              status: validationResult.status,
               headers: { 'Content-Type': 'application/json' }
             });
           }
@@ -142,9 +193,9 @@ export async function onRequestGet(context) {
     console.log('[getLinks] No data found for userId:', userId);
     
     let availableKeys = [];
-    if (env.CARD_ORDER && typeof env.CARD_ORDER.list === 'function') {
+    if (kvStore && typeof kvStore.list === 'function') {
       try {
-        const listResult = await env.CARD_ORDER.list({ limit: 50 });
+        const listResult = await kvStore.list({ limit: 50 });
         availableKeys = listResult.keys.map(k => k.name);
       } catch (e) {
         console.error('[getLinks] Failed to list keys:', e);
