@@ -1623,15 +1623,28 @@
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
                 }
-                if (tipsElement) {
-                    tipsElement.style.display = 'none';
-                }
+                // 无论是否长按，touchend 时都隐藏提示
+                setTimeout(function() {
+                    if (tipsElement) {
+                        tipsElement.style.display = 'none';
+                    }
+                }, 50);
             });
             
             card.addEventListener('touchmove', function() {
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
                     longPressTimer = null;
+                }
+            });
+            
+            card.addEventListener('touchcancel', function() {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                if (tipsElement) {
+                    tipsElement.style.display = 'none';
                 }
             });
         }
