@@ -2119,11 +2119,10 @@
                 const url = card.querySelector('.card-url').textContent;
                 const name = card.querySelector('.card-title').textContent;
                 const isPrivate = card.dataset.isPrivate === 'true';
-                const tipsElement = card.querySelector('.card-tips');
-                const tips = tipsElement ? tipsElement.textContent : '';
-                // 从原始数据中找到对应的链接以保留 icon 字段
+                // 从原始数据中找到对应的链接以保留 icon 和 tips 字段
                 const originalLink = links.find(l => l.url === url);
                 const icon = originalLink ? originalLink.icon : '';
+                const tips = originalLink ? originalLink.tips : '';
                 card.dataset.category = category;
                 const link = { name, url, tips, icon, category, isPrivate };
                 if (isPrivate) {
