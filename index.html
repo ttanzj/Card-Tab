@@ -33,6 +33,7 @@
         align-items: center;
         justify-content: space-between;
         margin-bottom: 10px;
+        position: relative;
     }
     
     .fixed-elements h3 {
@@ -54,10 +55,26 @@
         justify-content: center;
     }
     
+    .philosophy-quote {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        font-size: 13px;
+        color: #666;
+        font-style: italic;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0 15px;
+        max-width: 30%;
+    }
+    
     .admin-controls {
         display: flex;
         align-items: center;
         gap: 10px;
+        flex-shrink: 0;
     }
     
     .admin-controls button {
@@ -124,6 +141,10 @@
     .edit-category-btn { 
         order: 4; 
         background-color: #6c757d;
+    }
+    .backup-btn { 
+        order: 5; 
+        background-color: #17a2b8;
     }
     
     .content {
@@ -415,6 +436,33 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     }
     
+    #backup-panel-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    }
+    
+    #backup-panel-box {
+        background-color: white;
+        padding: 24px;
+        border-radius: 12px;
+        width: 320px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        text-align: center;
+    }
+    
+    #backup-panel-box h3 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+    
     #confirm-dialog-box p {
         margin: 0 0 20px 0;
         font-size: 16px;
@@ -489,6 +537,13 @@
         line-height: 1.2;
     }
     
+    .section-divider {
+        height: 1px;
+        background-color: #e0e0e0;
+        margin: 8px 0 12px 20px;
+        width: calc(100% - 40px);
+    }
+    
     .delete-category-btn {
         background-color: #ff9800;
         color: white;
@@ -544,7 +599,7 @@
         position: relative;
         user-select: none;
         border-left: 3px solid #28a745;
-        height: 56px;
+        height: 63px;
         box-sizing: border-box;
         overflow: visible;
     }
@@ -767,7 +822,7 @@
             padding: 5px;
         }
         .content {
-            margin-top: 120px;
+            margin-top: 130px;
         }
 
         .admin-controls input,
@@ -865,6 +920,7 @@
     <div class="fixed-elements" style="display: none;">
         <div class="header-row">
             <h3 id="nav-title"></h3>
+            <div id="philosophy-quote" class="philosophy-quote"></div>
             <div class="admin-controls" style="display: none;">
                 <button id="admin-mode-btn" onclick="handleMainButtonClick()">设  置</button>
                 <button id="logout-btn" onclick="handleLogout()" style="background-color: #dc3545;">注  销</button>
@@ -892,6 +948,7 @@
             <button class="round-btn remove-btn" onclick="toggleCardEditMode()">✎</button>
             <button class="round-btn category-btn" onclick="showCategoryDialog()">C+</button>
             <button class="round-btn edit-category-btn" onclick="toggleCategoryEditMode()">E</button>
+            <button class="round-btn backup-btn" onclick="showBackupPanel()">📦</button>
         </div>
 
         <div id="sections-container"></div>
@@ -935,6 +992,19 @@
             </div>
         </div>
         
+        <div id="backup-panel-overlay" style="display: none;">
+            <div id="backup-panel-box">
+                <h3>📦 数据备份与恢复</h3>
+                <div style="margin-top: 20px;">
+                    <button id="backup-export-btn" onclick="exportBackup()" style="width: 100%; margin-bottom: 10px; padding: 12px; background-color: #28a745;">📥 导出备份</button>
+                    <button id="backup-import-btn" onclick="showImportDialog()" style="width: 100%; margin-bottom: 10px; padding: 12px; background-color: #007bff;">📤 导入数据</button>
+                    <button id="backup-close-btn" onclick="hideBackupPanel()" style="width: 100%; padding: 12px; background-color: #6c757d;">关闭</button>
+                </div>
+            </div>
+        </div>
+        
+        <input type="file" id="backup-file-input" accept=".txt" style="display: none;" onchange="handleFileImport(this)">
+        
     </div>
 
     <script>
@@ -945,6 +1015,36 @@
     };
     
     let currentEngine = "baidu";
+    
+    const philosophyQuotes = [
+        "生活不是等待风暴过去，而是学会在雨中翩翩起舞",
+        "人生最大的挑战是发现自己是谁，而第二大的挑战是对所发现的感到满意",
+        "成功不是最终的，失败也不是致命的，重要的是继续前进的勇气",
+        "每一天都是一个新的开始，抓住机会，创造美好",
+        "生活中最美好的事物都是免费的：微笑、拥抱、朋友、爱和美好的回忆",
+        "不要等待机会，而要创造机会",
+        "人生没有彩排，每一天都是现场直播",
+        "把每一天当作生命中的最后一天来对待",
+        "幸福不是拥有你想要的，而是想要你所拥有的",
+        "人生的意义不在于你呼吸了多少次，而在于有多少时刻让你屏住呼吸",
+        "成功的秘诀在于始终如一地坚持目标",
+        "生活就像骑自行车，要保持平衡就得不断前进",
+        "不要为明天忧虑，因为明天自有明天的忧虑",
+        "人生最重要的不是我们身处何地，而是我们前往何方",
+        "真正的快乐来自于内心的平静"
+    ];
+    
+    function getRandomQuote() {
+        const index = Math.floor(Math.random() * philosophyQuotes.length);
+        return philosophyQuotes[index];
+    }
+    
+    function displayQuote() {
+        const quoteElement = document.getElementById('philosophy-quote');
+        if (quoteElement) {
+            quoteElement.textContent = getRandomQuote();
+        }
+    }
     
     function logAction(action, details) {
         const timestamp = new Date().toISOString();
@@ -1319,7 +1419,11 @@
             cardContainer.className = 'card-container';
             cardContainer.id = category;
     
+            const divider = document.createElement('div');
+            divider.className = 'section-divider';
+            
             section.appendChild(titleContainer);
+            section.appendChild(divider);
             section.appendChild(cardContainer);
     
             container.appendChild(section);
@@ -2307,6 +2411,7 @@
                 
                 document.getElementById('login-overlay').style.display = 'none';
                 document.querySelector('.fixed-elements').style.display = 'block';
+                displayQuote();
                 loadLinks();
                 updateUIState();
             } else {
@@ -2346,6 +2451,7 @@
                 renderCategories();
                 updateUIState();
                 logAction('保存并退出设置');
+                window.location.reload();
             }).catch(error => {
                 console.error('Save failed:', error);
                 alert('保存失败');
@@ -2570,6 +2676,7 @@
                 if (response.status === 200) {
                     isLoggedIn = true;
                     document.querySelector('.fixed-elements').style.display = 'block';
+                    displayQuote();
                     loadLinks();
                     logAction('自动登录成功');
                     return;
@@ -2584,6 +2691,146 @@
 
     // 页面加载完成后初始化
     document.addEventListener('DOMContentLoaded', initApp);
+    
+    // 备份面板相关函数
+    function showBackupPanel() {
+        document.getElementById('backup-panel-overlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        logAction('显示备份面板');
+    }
+    
+    function hideBackupPanel() {
+        document.getElementById('backup-panel-overlay').style.display = 'none';
+        document.body.style.overflow = '';
+        logAction('隐藏备份面板');
+    }
+    
+    async function exportBackup() {
+        if (!await validateToken()) {
+            return;
+        }
+        
+        const userId = localStorage.getItem('userId') || 'testUser';
+        const headers = {
+            'Content-Type': 'application/json',
+            'Authorization': localStorage.getItem('authToken')
+        };
+        
+        try {
+            const response = await fetch('/api/getLinks?userId=' + encodeURIComponent(userId), { headers });
+            const data = await response.json();
+            
+            if (data.error) {
+                alert('导出失败：' + data.error);
+                return;
+            }
+            
+            const backupData = {
+                links: data.links || [],
+                categories: data.categories || {}
+            };
+            
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'card-tab-backup-' + new Date().toISOString().slice(0, 10) + '.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            logAction('导出备份成功', { linkCount: backupData.links.length });
+        } catch (error) {
+            console.error('Export backup error:', error);
+            alert('导出失败，请重试');
+            logAction('导出备份失败', { error: error.message });
+        }
+    }
+    
+    function showImportDialog() {
+        document.getElementById('backup-file-input').click();
+    }
+    
+    async function handleFileImport(input) {
+        const file = input.files[0];
+        if (!file) return;
+        
+        if (!await validateToken()) {
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const backupData = JSON.parse(e.target.result);
+                
+                if (!backupData.links || !backupData.categories) {
+                    alert('无效的备份文件格式');
+                    return;
+                }
+                
+                await importBackupData(backupData);
+                alert('导入成功！');
+                logAction('导入备份成功');
+            } catch (error) {
+                console.error('Import backup error:', error);
+                alert('导入失败：' + error.message);
+                logAction('导入备份失败', { error: error.message });
+            } finally {
+                input.value = '';
+                hideBackupPanel();
+            }
+        };
+        
+        reader.readAsText(file);
+    }
+    
+    async function importBackupData(backupData) {
+        const existingUrls = new Set(links.map(link => link.url));
+        
+        let importedCount = 0;
+        let skippedCount = 0;
+        
+        for (const categoryName of Object.keys(backupData.categories)) {
+            if (!categories[categoryName]) {
+                categories[categoryName] = [];
+            }
+            
+            const backupLinks = backupData.categories[categoryName] || [];
+            for (const link of backupLinks) {
+                if (!existingUrls.has(link.url)) {
+                    const newLink = {
+                        name: link.name,
+                        url: link.url,
+                        tips: link.tips || '',
+                        icon: link.icon || '',
+                        category: categoryName,
+                        isPrivate: link.isPrivate || false
+                    };
+                    
+                    if (newLink.isPrivate) {
+                        privateLinks.push(newLink);
+                    } else {
+                        publicLinks.push(newLink);
+                    }
+                    links.push(newLink);
+                    categories[categoryName].push(newLink);
+                    existingUrls.add(link.url);
+                    importedCount++;
+                } else {
+                    skippedCount++;
+                }
+            }
+        }
+        
+        renderCategories();
+        updateCategorySelect();
+        await saveLinks();
+        
+        logAction('导入数据完成', { importedCount, skippedCount });
+    }
     </script>
 </body>
 
