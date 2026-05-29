@@ -1562,14 +1562,14 @@
             document.body.appendChild(tipsElement);
             
             card.addEventListener('mouseenter', function(e) {
-                if (tipsElement) {
+                if (tipsElement && !cardEditMode) {
                     tipsElement.style.display = 'block';
                     updateTipsPosition(e, tipsElement);
                 }
             });
 
             card.addEventListener('mousemove', function(e) {
-                if (tipsElement && tipsElement.style.display === 'block') {
+                if (tipsElement && tipsElement.style.display === 'block' && !cardEditMode) {
                     updateTipsPosition(e, tipsElement);
                 }
             });
@@ -2313,6 +2313,9 @@
             isAdmin = true;
             cardEditMode = false;
             categoryEditMode = false;
+            document.querySelectorAll('.card-tips').forEach(function(tips) {
+                tips.style.display = 'none';
+            });
             adminBtn.textContent = "保  存";
             const addRemoveControls = document.querySelector('.add-remove-controls');
             addRemoveControls.style.display = 'flex';
@@ -2364,6 +2367,11 @@
     
     function toggleCardEditMode() {
         cardEditMode = !cardEditMode;
+        if (cardEditMode) {
+            document.querySelectorAll('.card-tips').forEach(function(tips) {
+                tips.style.display = 'none';
+            });
+        }
         renderCategories();
         logAction('切换卡片编辑模式', { cardEditMode });
     }
