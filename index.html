@@ -1006,6 +1006,16 @@
         localStorage.removeItem('kvBinding');
         isLoggedIn = false;
         isAdmin = false;
+        cardEditMode = false;
+        categoryEditMode = false;
+        removeMode = false;
+        isRemoveCategoryMode = false;
+        publicLinks = [];
+        privateLinks = [];
+        links = [];
+        Object.keys(categories).forEach(key => delete categories[key]);
+        document.getElementById('category-nav').innerHTML = '';
+        document.getElementById('sections-container').innerHTML = '';
         document.getElementById('login-overlay').style.display = 'flex';
         document.querySelector('.fixed-elements').style.display = 'none';
         document.querySelector('.content').classList.remove('loaded');
