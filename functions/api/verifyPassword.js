@@ -40,9 +40,9 @@ export async function onRequestPost(context) {
     
     const users = [
       { password: env.ADMIN_PASSWORD, kvBinding: 'CARD_ORDER', userId: 'testUser' },
-      { password: env.ADMIN_PASSWORD1, kvBinding: 'CARD_ORDER1', userId: 'testUser1' },
-      { password: env.ADMIN_PASSWORD2, kvBinding: 'CARD_ORDER2', userId: 'testUser2' },
-      { password: env.ADMIN_PASSWORD3, kvBinding: 'CARD_ORDER3', userId: 'testUser3' }
+      { password: env.ADMIN_PASSWORD1, kvBinding: 'CARD_ORDER1', userId: 'testUser' },
+      { password: env.ADMIN_PASSWORD2, kvBinding: 'CARD_ORDER2', userId: 'testUser' },
+      { password: env.ADMIN_PASSWORD3, kvBinding: 'CARD_ORDER3', userId: 'testUser' }
     ].filter(user => user.password);
     
     const matchedUser = users.find(user => password === user.password);

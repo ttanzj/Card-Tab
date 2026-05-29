@@ -99,12 +99,16 @@ export async function onRequestGet(context) {
     let validationResult = null;
     if (authToken) {
       validationResult = await validateServerToken(authToken, env);
+      console.log('[getLinks] Validation result:', validationResult);
       if (validationResult.kvBinding) {
         kvBinding = validationResult.kvBinding;
+        console.log('[getLinks] Using kvBinding from token:', kvBinding);
       }
     }
 
+    console.log('[getLinks] Final kvBinding:', kvBinding);
     const kvStore = env[kvBinding];
+    console.log('[getLinks] kvStore exists:', !!kvStore);
     
     if (kvStore && typeof kvStore.get === 'function') {
       try {
